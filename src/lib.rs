@@ -17,6 +17,8 @@
 #[macro_use]
 extern crate error_chain;
 
+pub mod channel;
+
 pub mod error;
 use error::{Result};
 use std::io::{Read, Write};
@@ -57,6 +59,7 @@ impl<R: Read> Receiver<R> {
 
 #[cfg(test)]
 mod tests {
+    use channel::Channel;
     use std::io::{Read, Write};
     use super::{Receiver, Sender};
 
@@ -74,69 +77,5 @@ mod tests {
         let tx = Sender::new(c.writer());
         let rx = Receiver::new(c.reader());
         (tx, rx)
-    }
-
-    use self::channel::Channel;
-
-    mod channel {
-        use std::io::{Read, Result, Write};
-        use std::rc::Rc;
-
-        /// A Vec-backed buffer that can be read from and written to.
-        pub struct Channel {
-            inner: Rc<Inner>,
-        }
-
-        struct Inner {
-            _v: Vec<u8>,
-            _read_pos: usize,
-        }
-
-        pub struct Reader {
-            _inner: Rc<Inner>,
-        }
-
-        pub struct Writer {
-            _inner: Rc<Inner>,
-        }
-
-        impl Channel {
-            pub fn new() -> Channel {
-                Channel {
-                    inner: Rc::new(Inner {
-                        _v: Vec::new(),
-                        _read_pos: 0
-                    })
-                }
-            }
-
-            pub fn reader(&self) -> Reader {
-                Reader {
-                    _inner: self.inner.clone(),
-                }
-            }
-
-            pub fn writer(&self) -> Writer {
-                Writer {
-                    _inner: self.inner.clone(),
-                }
-            }
-        }
-
-        impl Read for Reader {
-            fn read(&mut self, _buf: &mut [u8]) -> Result<usize> {
-                unimplemented!()
-            }
-        }
-
-        impl Write for Writer {
-            fn write(&mut self, _buf: &[u8]) -> Result<usize> {
-                unimplemented!()
-            }
-
-            fn flush(&mut self) -> Result<()> {
-                unimplemented!()
-            }
-        }
     }
 }
