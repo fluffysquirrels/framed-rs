@@ -14,8 +14,15 @@ cobs = "^0.1.2"
 error-chain = "^0.11.0"
 ref_slice = "^1.1.1"
 
+[dependencies.core-io]
+git = "https://github.com/QuiltOS/core-io"
+rev = "f084f913011c9916d420b520ead3953a2ccb950e"
+
 [features]
-default_features = []
+default = ["use_std"]
 
 # Enable to print all data to stdout for testing.
 trace = []
+
+# Use standard library, enabled by default; disable for no_std.
+use_std = []

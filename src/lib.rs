@@ -16,26 +16,39 @@
 //! ## Cargo feature flags
 //! `trace`: Enable to print all data to stdout for testing.
 //!
+//! `use_std`: Use standard library, enabled by default; disable for no_std.
+//!
 //! ## TODO
 //! * Start frame with a zero as well, then we detect partial frames.
 //! * Add a length field to the beginning of the frame and a
 //!   checksum to the end. Perhaps make them optional.
-//! * Support no_std.
 
 #![deny(warnings)]
 #![feature(conservative_impl_trait)]
 
+#![cfg_attr(not(feature = "use_std"), no_std)]
+
 extern crate cobs;
-#[macro_use]
-extern crate error_chain;
+#[cfg(not(feature = "use_std"))]
+extern crate core_io;
+
 extern crate ref_slice;
 
+#[cfg(feature = "use_std")]
 pub mod channel;
 
 pub mod error;
-use error::{Error, ErrorKind, Result};
+#[allow(unused_imports)]
+use error::{Error, Result};
+
+#[cfg(feature = "use_std")]
 use ref_slice::ref_slice_mut;
+
+#[cfg(feature = "use_std")]
 use std::io::{self, Read, Write};
+
+#[cfg(not(feature = "use_std"))]
+use core_io::{Read, Write};
 
 const FRAME_END: u8 = 0;
 
@@ -57,13 +70,27 @@ impl<W: Write> Sender<W> {
         #[cfg(feature = "trace")] {
             println!("framed: Sending code = {:?}", code);
         }
-        self.w.write(&code)?;
+
+        #[cfg(feature = "use_std")] {
+            self.w.write(&code)?;
+        }
+
+        #[cfg(not(feature = "use_std"))] {
+            self.w.write(&code)
+                .map_err(|_| Error::Io)?;
+        }
+
         Ok(())
     }
 }
 
 /// Receives frames from an underlying `io::Read` instance.
+///
+/// TODO: Add a recv() variant suitable for no_std use, e.g. one that
+/// takes a `&mut [u8]`.
 pub struct Receiver<R: Read> {
+
+    #[cfg_attr(not(feature = "use_std"), allow(dead_code))]
     /// The underlying reader
     r: R,
 }
@@ -75,6 +102,7 @@ impl<R: Read> Receiver<R> {
         }
     }
 
+    #[cfg(feature = "use_std")]
     pub fn recv(&mut self) -> Result<Vec<u8>> {
         let mut next_frame = Vec::new();
 
@@ -86,9 +114,9 @@ impl<R: Read> Receiver<R> {
             }
             match res {
                 Err(ref e) if e.kind() == io::ErrorKind::UnexpectedEof =>
-                    return Err(Error::from(ErrorKind::EofDuringFrame)),
+                    return Err(Error::EofDuringFrame),
                 Ok(0) =>
-                    return Err(Error::from(ErrorKind::EofDuringFrame)),
+                    return Err(Error::EofDuringFrame),
                 Err(e) => return Err(Error::from(e)),
                 Ok(_) => (),
             };
@@ -105,14 +133,14 @@ impl<R: Read> Receiver<R> {
         assert!(b == FRAME_END);
 
         cobs::decode_vec(&next_frame)
-             .map_err(|_| Error::from(ErrorKind::CobsDecodeFailed))
+             .map_err(|_| Error::CobsDecodeFailed)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use channel::Channel;
-    use error::{Error, ErrorKind};
+    use error::Error;
     use std::io::{Read, Write};
     use super::{Receiver, Sender};
 
@@ -165,7 +193,7 @@ mod tests {
     fn empty_input() {
         let (mut _tx, mut rx) = pair();
         match rx.recv() {
-            Err(Error(ErrorKind::EofDuringFrame, _)) => (),
+            Err(Error::EofDuringFrame) => (),
             e @ _ => panic!("Bad value: {:?}", e)
         }
     }
