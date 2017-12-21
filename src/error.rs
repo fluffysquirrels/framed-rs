@@ -12,5 +12,9 @@ error_chain! {
             description("COBS decode failed"),
             display("COBS decode failed"),
         }
+        EofDuringFrame {
+            description("end of file during a frame"),
+            display("end of file during a frame"),
+        }
     }
 }

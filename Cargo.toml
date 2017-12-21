@@ -12,3 +12,10 @@ repository = "https://github.com/fluffysquirrels/framed"
 [dependencies]
 cobs = "^0.1.2"
 error-chain = "^0.11.0"
+ref_slice = "^1.1.1"
+
+[features]
+default_features = []
+
+# Enable to print all data to stdout for testing.
+trace = []
