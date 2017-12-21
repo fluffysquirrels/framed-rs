@@ -1,0 +1,13 @@
+[package]
+name = "framed"
+version = "0.1.0"
+description = "Send and receive frames (arrays of bytes of varied size) over streams of bytes."
+authors = ["Alex Helfet <alex.helfet@gmail.com>"]
+categories = ["embedded", "encoding", "network-programming"]
+keywords = ["no_std", "networking", "datalink", "protocol", "embedded"]
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/fluffysquirrels/framed"
+
+[dependencies]
+error-chain = "^0.11.0"
