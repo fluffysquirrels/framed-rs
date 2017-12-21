@@ -14,46 +14,52 @@
 #![deny(warnings)]
 #![feature(conservative_impl_trait)]
 
+extern crate cobs;
 #[macro_use]
 extern crate error_chain;
 
 pub mod channel;
 
 pub mod error;
-use error::{Result};
+use error::{Error, ErrorKind, Result};
 use std::io::{Read, Write};
 
 /// Sends frames over an underlying `io::Write` instance.
 pub struct Sender<W: Write> {
-    _w: W,
+    w: W,
 }
 
 impl<W: Write> Sender<W> {
     pub fn new(w: W) -> Sender<W> {
         Sender::<W> {
-            _w: w,
+            w: w,
         }
     }
 
-    pub fn send(&mut self, _f: &[u8]) -> Result<()> {
-        unimplemented!();
+    pub fn send(&mut self, f: &[u8]) -> Result<()> {
+        let code = cobs::encode_vec(f);
+        self.w.write(&code)?;
+        Ok(())
     }
 }
 
 /// Receives frames from an underlying `io::Read` instance.
 pub struct Receiver<R: Read> {
-    _r: R,
+    r: R,
 }
 
 impl<R: Read> Receiver<R> {
     pub fn new(r: R) -> Receiver<R> {
         Receiver::<R> {
-            _r: r,
+            r: r,
         }
     }
 
     pub fn recv(&mut self) -> Result<Vec<u8>> {
-        unimplemented!();
+        let mut code = Vec::new();
+        self.r.read_to_end(&mut code)?;
+        cobs::decode_vec(&code)
+             .map_err(|_| Error::from(ErrorKind::CobsDecodeFailed))
     }
 }
 
@@ -71,6 +77,14 @@ mod tests {
         let recvd = rx.recv().unwrap();
         assert_eq!(recvd, sent);
     }
+
+    // TODO: Test sending 2 different frames.
+
+    // TODO: Test buffering:
+    // * Write half a frame
+    // * recv() returns nothing
+    // * Write the rest of the frame
+    // * recv() returns the whole frame
 
     fn pair() -> (Sender<impl Write>, Receiver<impl Read>) {
         let c = Channel::new();

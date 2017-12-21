@@ -8,17 +8,9 @@ error_chain! {
     }
 
     errors {
-        UnknownHeader(b: u8) {
-            description("unknown header byte"),
-            display("unknown header byte: {:x}", b),
-        }
-        EofDuringPacket {
-            description("end of file during packet"),
-            display("end of file during packet"),
-        }
-        EofBeforePacket {
-            description("end of file before packet"),
-            display("end of file before packet"),
+        CobsDecodeFailed {
+            description("COBS decode failed"),
+            display("COBS decode failed"),
         }
     }
 }
