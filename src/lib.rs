@@ -76,12 +76,13 @@
 //! instance.
 
 #![deny(warnings)]
+// #![feature(coerce_unsized)]
 #![feature(conservative_impl_trait)]
+// #![feature(unsize)]
 
 #![cfg_attr(not(feature = "use_std"), no_std)]
 
 extern crate cobs;
-
 extern crate ref_slice;
 
 #[cfg(feature = "use_std")]
@@ -90,8 +91,19 @@ use ref_slice::ref_slice_mut;
 #[cfg(feature = "use_std")]
 use std::io::{self, Read, Write};
 
+// #[cfg(feature = "use_std")]
+// use std::ops::{CoerceUnsized, Deref};
+// #[cfg(not(feature = "use_std"))]
+// use core::ops::{CoerceUnsized, Deref};
+
 #[cfg(feature = "use_std")]
 use std::ops::Deref;
+
+// #[cfg(feature = "use_std")]
+// use std::marker::Unsize;
+
+// #[cfg(not(feature = "use_std"))]
+// use core::marker::Unsize;
 
 #[cfg(feature = "use_std")]
 pub mod channel;
@@ -100,14 +112,48 @@ pub mod error;
 #[allow(unused_imports)]
 use error::{Error, Result};
 
+// TODO: Move use_std stuff into sub-module use_std to clean up.
 
 
 /// Arbitrary user data.
+///
+///
+//Type parameter `T: Unsize<[u8]>` is the type of the underlying storage, which must be coercible into a [u8]; i.e. must be an array of bytes or a slice of bytes.
+//pub struct Payload<T: Unsize<[u8]>>(pub T);
+//pub struct Payload(pub [u8]);
 pub type Payload = [u8];
+
+// /// Construct a Payload from an Unsize<[u8]> argument, i.e. any array of bytes.
+// impl<T: Unsize<[u8]>> From<T> for Payload {
+//     fn from(s: T) -> Payload {
+//         Payload(s)
+//     }
+// }
+
+// /// Payload<T> is coercible to Payload<U> when T is coercible to U;
+// /// e.g. Payload<[u8; 5]> is coercible to Payload<[u8]>.
+// //impl<T: ?Sized+Unsize<U>, U: ?Sized> CoerceUnsized<Payload<U>> for Payload<T> {}
+// 
+// impl Deref for Payload {
+//     type Target = [u8];
+// 
+//     fn deref(&self) -> &[u8] {
+//         &self.0
+//     }
+// }
 
 /// Data that is encoded as a frame. It is ready to send, or may have
 /// just been received.
 pub type Encoded = [u8];
+// pub struct Encoded([u8]);
+
+// impl Deref for Encoded {
+//     type Target = [u8];
+// 
+//     fn deref(&self) -> &[u8] {
+//         &self.0
+//     }
+// }
 
 // Note: BoxPayload and BoxEncoded store data in a Vec<u8> as that's
 // what `cobs` returns us and converting them into a Box<[u8]> (with
