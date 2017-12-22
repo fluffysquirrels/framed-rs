@@ -30,9 +30,51 @@
 //! follow Rust semver rules on API changes.
 //!
 //! ## Cargo feature flags
-//! `trace`: Enable to print all data to stdout for testing.
 //!
 //! `use_std`: Use standard library, enabled by default; disable for no_std.
+//!
+//! `trace`: Enable to print all data to stdout for testing.
+//!
+//! ## API
+//!
+//! Payload data and encoded frame data have separate types to avoid
+//! mixing them up. You are encouraged to use these types in your own
+//! code when integrating with this crate. Definitions:
+//!
+//! ```rust,ignore
+//! /// Arbitrary user data.
+//! pub struct Payload(pub [u8]);
+//!
+//! /// Data that is encoded as a frame. It is ready to send, or may have
+//! /// just been received.
+//! pub struct Encoded(pub [u8]);
+//!
+//! /// Heap-allocated user data used as a return type.
+//! #[cfg(feature = "use_std")]
+//! pub struct BoxPayload(_);
+//!
+//! /// Heap-allocated frame data used as a return type.
+//! #[cfg(feature = "use_std")]
+//! pub struct BoxEncoded(_);
+//! ```
+//!
+//! Consumers have a choice of interfaces to enable usability,
+//! efficiency, and use from `no_std` crates.
+//!
+//! See the `decode_*` and `encode_*` functions for simple uses with
+//! various input and output types.
+//!
+//! Note that data (`type`ed as `Payload` or `Encoded`) may be
+//! efficiently passed as a function argument by reference, but is
+//! returned using an opaque struct (`BoxPayload`, `BoxEncoded`)
+//! containing a heap-allocated value instead. Consequently `encode_*`
+//! and `decode_*` variants that require this are only available with
+//! the `use_std` Cargo feature.
+//!
+//! For sending or receiving a stream of frames, consider the `Reader`
+//! and `Writer` structs that wrap an `io::Read` or `io::Write`
+//! instance.
+
 #![deny(warnings)]
 #![feature(conservative_impl_trait)]
 
@@ -43,38 +85,95 @@ extern crate cobs;
 extern crate ref_slice;
 
 #[cfg(feature = "use_std")]
+use ref_slice::ref_slice_mut;
+
+#[cfg(feature = "use_std")]
+use std::io::{self, Read, Write};
+
+#[cfg(feature = "use_std")]
+use std::ops::Deref;
+
+#[cfg(feature = "use_std")]
 pub mod channel;
 
 pub mod error;
 #[allow(unused_imports)]
 use error::{Error, Result};
 
+
+
+/// Arbitrary user data.
+pub type Payload = [u8];
+
+/// Data that is encoded as a frame. It is ready to send, or may have
+/// just been received.
+pub type Encoded = [u8];
+
+// Note: BoxPayload and BoxEncoded store data in a Vec<u8> as that's
+// what `cobs` returns us and converting them into a Box<[u8]> (with
+// Vec::into_boxed_slice(self)) would require re-allocation.
+//
+// See https://doc.rust-lang.org/std/vec/struct.Vec.html#method.into_boxed_slice
+
+/// Heap-allocated user data used as a return type.
 #[cfg(feature = "use_std")]
-use ref_slice::ref_slice_mut;
+#[derive(Debug)]
+pub struct BoxPayload(Vec<u8>);
 
 #[cfg(feature = "use_std")]
-use std::io::{self, Read, Write};
+impl From<Vec<u8>> for BoxPayload {
+    fn from(v: Vec<u8>) -> BoxPayload {
+        BoxPayload(v)
+    }
+}
 
-/// TODO
-pub struct Payload(pub [u8]);
+#[cfg(feature = "use_std")]
+impl Deref for BoxPayload {
+    type Target = [u8];
 
-/// TODO
-pub struct Encoded(pub [u8]);
+    fn deref(&self) -> &[u8] {
+        &*self.0
+    }
+}
 
-const END_SYMBOL: u8 = 0;
+/// Heap-allocated frame data used as a return type.
+#[cfg(feature = "use_std")]
+#[derive(Debug)]
+pub struct BoxEncoded(Vec<u8>);
+
+#[cfg(feature = "use_std")]
+impl From<Vec<u8>> for BoxEncoded {
+    fn from(v: Vec<u8>) -> BoxEncoded {
+        BoxEncoded(v)
+    }
+}
+
+#[cfg(feature = "use_std")]
+impl Deref for BoxEncoded {
+    type Target = [u8];
+
+    fn deref(&self) -> &[u8] {
+        &*self.0
+    }
+}
+
+pub const FRAME_END_SYMBOL: u8 = 0;
 
 const HEADER_LEN: usize = 0;
 
 const FOOTER_LEN: usize = 1;
 
-/// TODO
-pub fn to_slice(p: &Payload, dest: &mut [u8]) -> Result<usize> {
+/// Encode the supplied payload data as a frame at the beginning of
+/// the supplied buffer `dest`.
+///
+/// Returns the length of the frame it has written.
+pub fn encode_to_slice(p: &Payload, dest: &mut [u8]) -> Result<usize> {
     // Panic if code won't fit in `dest` because this is a programmer error.
-    assert!(max_encoded_len(p.0.len())? <= dest.len());
+    assert!(max_encoded_len(p.len())? <= dest.len());
 
-    let cobs_len = cobs::encode(&p.0, &mut dest[HEADER_LEN..]);
+    let cobs_len = cobs::encode(&p, &mut dest[HEADER_LEN..]);
     let footer_idx = HEADER_LEN + cobs_len;
-    dest[footer_idx] = END_SYMBOL;
+    dest[footer_idx] = FRAME_END_SYMBOL;
 
     #[cfg(feature = "trace")] {
         println!("framed: Frame code = {:?}", dest[0..(footer_idx + 1)]);
@@ -82,32 +181,50 @@ pub fn to_slice(p: &Payload, dest: &mut [u8]) -> Result<usize> {
     Ok(cobs_len + HEADER_LEN + FOOTER_LEN)
 }
 
-/// TODO
+/// Encode the supplied payload data as a frame and return it on the heap.
 #[cfg(feature = "use_std")]
-pub fn to_box(_p: &Payload) -> Result<Box<Encoded>> {
+pub fn encode_to_box(_p: &Payload) -> Result<BoxEncoded> {
     unimplemented!()
 }
 
-/// TODO
+/// Encode the supplied payload data as a frame and write it to the
+/// supplied `Write`.
+///
+/// Returns the length of the frame it has written.
 #[cfg(feature = "use_std")]
-pub fn to_writer<W: Write>(_p: &Payload, _w: W) -> Result<usize> {
+pub fn encode_to_writer<W: Write>(_p: &Payload, _w: W) -> Result<usize> {
     unimplemented!()
 }
 
-/// TODO
-pub fn from_slice_to_slice(_src: &[u8], _dst: &mut [u8]) -> Result<usize> {
+/// Decode the supplied encoded frame, placing the payload at the
+/// beginning of the supplied buffer `dest`.
+///
+/// When reading from a stream, the caller can continue reading data
+/// and buffering it until a `FRAME_END_SYMBOL` is read, then pass the
+/// whole buffer including `FRAME_END_SYMBOL` to this function for
+/// decoding.
+///
+/// Returns the length of the payload it has decoded.
+///
+/// ## Errors
+///
+/// Returns an error if `f` does not contain a complete encoded frame,
+/// which would have `FRAME_END_SYMBOL` (a `u8`) as the last byte.
+pub fn decode_to_slice(_e: &Encoded, _dest: &mut [u8])
+-> Result<usize> {
     unimplemented!()
 }
 
-/// TODO
+/// Decode the supplied encoded frame, returning the payload on the heap.
 #[cfg(feature = "use_std")]
-pub fn from_slice_to_box(_src: &Encoded) -> Result<Box<Payload>> {
+pub fn decode_to_box(_e: &Encoded) -> Result<BoxPayload> {
     unimplemented!()
 }
 
-/// TODO
+/// Reads bytes from the supplied `Read` until it has a complete
+/// encoded frame, then decodes the frame, returning the payload on the heap.
 #[cfg(feature = "use_std")]
-pub fn from_reader<R: Read>(_r: &Read) -> Result<Box<Payload>> {
+pub fn decode_from_reader<R: Read>(_r: &Read) -> Result<BoxPayload> {
     unimplemented!()
 }
 
@@ -125,16 +242,16 @@ pub fn max_decoded_len(code_len: usize) -> Result<usize> {
     Ok(cobs_decode_limit)
 }
 
-/// Returns the maximum possible encoded length given a frame with
-/// the decoded length supplied.
-pub fn max_encoded_len(frame_len: usize) -> Result<usize> {
+/// Returns the maximum possible encoded length for a frame with
+/// the payload length supplied.
+pub fn max_encoded_len(payload_len: usize) -> Result<usize> {
     Ok(HEADER_LEN
-        + cobs::max_encoding_length(frame_len)
+        + cobs::max_encoding_length(payload_len)
         + FOOTER_LEN)
 }
 
 
-/// Sends frames over an underlying `io::Write` instance.
+/// Sends encoded frames over an inner `io::Write` instance.
 #[cfg(feature = "use_std")]
 pub struct Sender<W: Write> {
     w: W,
@@ -142,26 +259,31 @@ pub struct Sender<W: Write> {
 
 #[cfg(feature = "use_std")]
 impl<W: Write> Sender<W> {
+    /// Construct a `Sender` that sends frames over the supplied
+    /// `io::Write`.
     pub fn new(w: W) -> Sender<W> {
         Sender::<W> {
             w: w,
         }
     }
 
+    /// Consume this `Sender` and return the inner `io::Write`.
     pub fn into_inner(self) -> W {
         self.w
     }
 
+    /// Encode the supplied payload as a frame and send it on the
+    /// inner `io::Write`.
     pub fn send(&mut self, p: &Payload) -> Result<()> {
-        let buf_len = max_encoded_len(p.0.len())?;
+        let buf_len = max_encoded_len(p.len())?;
         let mut buf = vec![0; buf_len];
-        let code_len = to_slice(p, &mut buf[0..])?;
+        let code_len = encode_to_slice(p, &mut buf[0..])?;
         self.w.write(&buf[0..code_len])?;
         Ok(())
     }
 }
 
-/// Receives frames from an underlying `io::Read` instance.
+/// Receives encoded frames from an inner `io::Read` instance.
 #[cfg(feature = "use_std")]
 pub struct Receiver<R: Read> {
     r: R,
@@ -169,17 +291,22 @@ pub struct Receiver<R: Read> {
 
 #[cfg(feature = "use_std")]
 impl<R: Read> Receiver<R> {
+    /// Construct a `Receiver` that receives frames from the supplied
+    /// `io::Read`.
     pub fn new(r: R) -> Receiver<R> {
         Receiver::<R> {
             r: r,
         }
     }
 
+    /// Consume this `Receiver` and return the inner `io::Read`.
     pub fn into_inner(self) -> R {
         self.r
     }
 
-    pub fn recv(&mut self) -> Result<Vec<u8>> {
+    /// Receive an encoded frame from the inner `io::Read`, decode it
+    /// and return the payload.
+    pub fn recv(&mut self) -> Result<BoxPayload> {
         let mut next_frame = Vec::new();
 
         let mut b = 0u8;
@@ -200,16 +327,16 @@ impl<R: Read> Receiver<R> {
             #[cfg(feature = "trace")] {
                 println!("framed: Read byte = {}", b);
             }
-            if b == END_SYMBOL {
+            if b == FRAME_END_SYMBOL {
                 break;
             } else {
                 next_frame.push(b);
             }
         }
-        assert!(b == END_SYMBOL);
-
-        cobs::decode_vec(&next_frame)
-             .map_err(|_| Error::CobsDecodeFailed)
+        assert!(b == FRAME_END_SYMBOL);
+        let v = cobs::decode_vec(&next_frame)
+                     .map_err(|_| Error::CobsDecodeFailed)?;
+        Ok(BoxPayload::from(v))
     }
 }
 
@@ -243,20 +370,20 @@ mod tests {
     }
 }
 
-#[cfg(all(test, not(feature = "use_std")))]
+#[cfg(all(test, feature = "use_std"))]
 mod rw_tests {
     use channel::Channel;
     use error::Error;
     use std::io::{Read, Write};
-    use super::{Receiver, Sender};
+    use super::*;
 
     #[test]
     fn one_frame() {
         let (mut tx, mut rx) = pair();
-        let sent = [0x00, 0x01, 0x02];
-        tx.send(&sent).unwrap();
+        let p = [0x00, 0x01, 0x02];
+        tx.send(&p).unwrap();
         let recvd = rx.recv().unwrap();
-        assert_eq!(recvd, sent);
+        assert_eq!(*recvd, p);
     }
 
     #[test]
@@ -266,14 +393,14 @@ mod rw_tests {
             let sent = [0x00, 0x01, 0x02];
             tx.send(&sent).unwrap();
             let recvd = rx.recv().unwrap();
-            assert_eq!(recvd, sent);
+            assert_eq!(*recvd, sent);
         }
 
         {
             let sent = [0x10, 0x11, 0x12];
             tx.send(&sent).unwrap();
             let recvd = rx.recv().unwrap();
-            assert_eq!(recvd, sent);
+            assert_eq!(*recvd, sent);
         }
     }
 
@@ -291,8 +418,8 @@ mod rw_tests {
         println!("r1: {:?}\n\
                   r2: {:?}", r1, r2);
 
-        assert_eq!(r1, s1);
-        assert_eq!(r2, s2);
+        assert_eq!(*r1, s1);
+        assert_eq!(*r2, s2);
     }
 
     #[test]
