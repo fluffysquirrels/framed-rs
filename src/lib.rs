@@ -10,9 +10,19 @@
 //! [dll]: https://en.wikipedia.org/wiki/Data_link_layer
 //! [pl]: https://en.wikipedia.org/wiki/Physical_layer
 //!
-//! Currently the encoding is: the frame [COBS]-encoded
-//! to remove bytes equal to zero, then a terminating zero byte.
+//! ## Encoding
+//!
+//! Currently the encoding is:
+//! * The frame [COBS]-encoded to remove bytes equal to zero
+//! * A terminating zero byte.
 //! [COBS]: https://en.wikipedia.org/wiki/Consistent_Overhead_Byte_Stuffing
+//!
+//! The encoding is not stable at the moment, i.e. it can and will
+//! change between minor versions. Consequently encoded data from this
+//! crate is unsuitable for long-term storage or transmission between
+//! different versions of an application. The API should be kept
+//! stable between versions where possible and the crate version will
+//! follow Rust semver rules on API changes.
 //!
 //! ## Cargo feature flags
 //! `trace`: Enable to print all data to stdout for testing.
@@ -72,14 +82,8 @@ impl<W: Write> Sender<W> {
 }
 
 /// Receives frames from an underlying `io::Read` instance.
-///
-/// TODO: Add a recv() variant suitable for no_std use, e.g. one that
-/// takes a `&mut [u8]`.
 #[cfg(feature = "use_std")]
 pub struct Receiver<R: Read> {
-
-    #[cfg_attr(not(feature = "use_std"), allow(dead_code))]
-    /// The underlying reader
     r: R,
 }
 
