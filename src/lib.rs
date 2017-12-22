@@ -66,6 +66,10 @@ impl<W: Write> Sender<W> {
         }
     }
 
+    pub fn into_inner(self) -> W {
+        self.w
+    }
+
     pub fn send(&mut self, f: &[u8]) -> Result<()> {
         let mut code = cobs::encode_vec(f);
         code.push(FRAME_END);
@@ -93,6 +97,10 @@ impl<R: Read> Receiver<R> {
         Receiver::<R> {
             r: r,
         }
+    }
+
+    pub fn into_inner(self) -> R {
+        self.r
     }
 
     pub fn recv(&mut self) -> Result<Vec<u8>> {
