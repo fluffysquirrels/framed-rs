@@ -56,28 +56,27 @@ use ref_slice::ref_slice_mut;
 use std::io::{self, Read, Write};
 
 /// TODO
-pub struct Frame([u8]);
+pub struct Payload(pub [u8]);
 
 /// TODO
-pub struct Encoded([u8]);
+pub struct Encoded(pub [u8]);
 
-const FRAME_END: u8 = 0;
+const END_SYMBOL: u8 = 0;
 
 /// TODO
-pub fn to_slice(_f: &Frame, _dest: &mut [u8]) -> Result<usize> {
+pub fn to_slice(p: &Payload, dest: &mut [u8]) -> Result<usize> {
     unimplemented!()
 }
 
 /// TODO
 #[cfg(feature = "use_std")]
-pub fn to_box(_f: &Frame) -> Result<Box<Encoded>> {
+pub fn to_box(_p: &Payload) -> Result<Box<Encoded>> {
     unimplemented!()
 }
 
-
 /// TODO
 #[cfg(feature = "use_std")]
-pub fn to_writer<W: Write>(_f: &Frame, _w: W) -> Result<usize> {
+pub fn to_writer<W: Write>(_p: &Payload, _w: W) -> Result<usize> {
     unimplemented!()
 }
 
@@ -90,14 +89,13 @@ pub fn from_slice_to_slice(_src: &[u8], _dst: &mut [u8]) -> Result<usize> {
 
 /// TODO
 #[cfg(feature = "use_std")]
-pub fn from_slice_to_box(_src: &Encoded) -> Result<Box<Frame>> {
+pub fn from_slice_to_box(_src: &Encoded) -> Result<Box<Payload>> {
     unimplemented!()
 }
 
-
 /// TODO
 #[cfg(feature = "use_std")]
-pub fn from_reader<R: Read>(_r: &Read) -> Result<Box<Frame>> {
+pub fn from_reader<R: Read>(_r: &Read) -> Result<Box<Payload>> {
     unimplemented!()
 }
 
@@ -132,9 +130,9 @@ impl<W: Write> Sender<W> {
         self.w
     }
 
-    pub fn send(&mut self, f: &[u8]) -> Result<()> {
-        let mut code = cobs::encode_vec(f);
-        code.push(FRAME_END);
+    pub fn send(&mut self, p: &[u8]) -> Result<()> {
+        let mut code = cobs::encode_vec(p);
+        code.push(END_SYMBOL);
         #[cfg(feature = "trace")] {
             println!("framed: Sending code = {:?}", code);
         }
@@ -186,13 +184,13 @@ impl<R: Read> Receiver<R> {
             #[cfg(feature = "trace")] {
                 println!("framed: Read byte = {}", b);
             }
-            if b == FRAME_END {
+            if b == END_SYMBOL {
                 break;
             } else {
                 next_frame.push(b);
             }
         }
-        assert!(b == FRAME_END);
+        assert!(b == END_SYMBOL);
 
         cobs::decode_vec(&next_frame)
              .map_err(|_| Error::CobsDecodeFailed)
