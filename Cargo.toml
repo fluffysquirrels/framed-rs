@@ -7,7 +7,13 @@ categories = ["embedded", "encoding", "network-programming"]
 keywords = ["no_std", "networking", "datalink", "protocol", "embedded"]
 readme = "README.md"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/fluffysquirrels/framed"
+
+documentation = "https://docs.rs/framed"
+repository = "https://github.com/fluffysquirrels/framed-rs"
+
+[badges.travis-ci]
+repository = "https://github.com/fluffysquirrels/framed-rs"
+branch = "master"
 
 [dependencies]
 cobs = "^0.1.3"
@@ -19,5 +25,5 @@ default = ["use_std"]
 # Enable to print all data to stdout for testing.
 trace = []
 
-# Use standard library, enabled by default; disable for no_std.
+# Use standard library. Enabled by default, disable for no_std.
 use_std = []

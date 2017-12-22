@@ -1,6 +1,6 @@
 //! Send and receive slices of bytes over lossy streams of bytes.
 //!
-//! Conforming to / inspired by the [data link layer][dll] or layer 2
+//! Living in / inspired by the [data link layer][dll] or layer 2
 //! in the OSI networking model, this module enables sending slices of
 //! bytes of definite length over an underlying lossy transport that
 //! only supports sending an unstructured stream of bytes (a [physical
@@ -31,7 +31,7 @@
 //!
 //! ## Cargo feature flags
 //!
-//! `use_std`: Use standard library, enabled by default; disable for no_std.
+//! `use_std`: Use standard library. Enabled by default, disable for no_std.
 //!
 //! `trace`: Enable to print all data to stdout for testing.
 //!
