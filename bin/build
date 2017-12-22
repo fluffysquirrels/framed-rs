@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -ex
+
+cargo +stable  build --verbose;
+
+cargo +nightly test --verbose;
+cargo +nightly test --verbose --no-default-features;
+
+cargo +stable  doc --verbose;
+cargo +nightly doc --verbose;
