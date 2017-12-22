@@ -1,6 +1,6 @@
 # `framed`
 
-Rust crate to send and receive frames (arrays of bytes of varied size)
+Rust crate to send and receive frames (arrays of bytes of varied length)
 over streams of bytes.
 
 See [rustdoc on docs.rs](https://docs.rs/crate/framed)

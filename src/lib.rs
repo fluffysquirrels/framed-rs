@@ -1,4 +1,5 @@
-//! Sending and receiving frames (slices of bytes of varied length).
+//! Sending and receiving frames (arrays of bytes of varied length)
+//! over streams of bytes.
 //!
 //! Conforming to / inspired by the [data link layer][dll] or layer 2
 //! in the OSI networking model, this module enables sending slices of
@@ -17,12 +18,6 @@
 //! `trace`: Enable to print all data to stdout for testing.
 //!
 //! `use_std`: Use standard library, enabled by default; disable for no_std.
-//!
-//! ## TODO
-//! * Start frame with a zero as well, then we detect partial frames.
-//! * Add a length field to the beginning of the frame and a
-//!   checksum to the end. Perhaps make them optional.
-
 #![deny(warnings)]
 #![feature(conservative_impl_trait)]
 

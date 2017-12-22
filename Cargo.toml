@@ -1,7 +1,7 @@
 [package]
 name = "framed"
 version = "0.1.0"
-description = "Send and receive frames (arrays of bytes of varied size) over streams of bytes."
+description = "Send and receive frames (arrays of bytes of varied length) over streams of bytes."
 authors = ["Alex Helfet <alex.helfet@gmail.com>"]
 categories = ["embedded", "encoding", "network-programming"]
 keywords = ["no_std", "networking", "datalink", "protocol", "embedded"]
