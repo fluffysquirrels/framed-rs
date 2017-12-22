@@ -18,6 +18,7 @@
 //! ## Encoding
 //!
 //! Currently the encoding is:
+//!
 //! * The "body": payload [COBS]-encoded to remove bytes equal to zero
 //! * A terminating zero byte.
 //! [COBS]: https://en.wikipedia.org/wiki/Consistent_Overhead_Byte_Stuffing
