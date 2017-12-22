@@ -8,4 +8,4 @@ rust:
  - nightly
 cache: cargo
 
-script: bin/build
+script: bin/travis/script

@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -e
+
+echo "TRAVIS_RUST_VERSION: '${TRAVIS_RUST_VERSION}'"
+set -x
+
+cargo build --verbose;
+
+if [[ "${TRAVIS_RUST_VERSION}" != "stable" ]]; then
+cargo test --verbose;
+cargo test --verbose --no-default-features;
+fi
+
+cargo doc --verbose;

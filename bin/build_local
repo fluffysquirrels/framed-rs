@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -ex
 
+# A simple build script to run locally.
+
 cargo +stable  build --verbose;
 
 cargo +nightly test --verbose;
