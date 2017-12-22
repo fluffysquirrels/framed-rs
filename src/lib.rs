@@ -24,8 +24,6 @@
 #![cfg_attr(not(feature = "use_std"), no_std)]
 
 extern crate cobs;
-#[cfg(not(feature = "use_std"))]
-extern crate core_io;
 
 extern crate ref_slice;
 
@@ -42,16 +40,15 @@ use ref_slice::ref_slice_mut;
 #[cfg(feature = "use_std")]
 use std::io::{self, Read, Write};
 
-#[cfg(not(feature = "use_std"))]
-use core_io::{Read, Write};
-
 const FRAME_END: u8 = 0;
 
 /// Sends frames over an underlying `io::Write` instance.
+#[cfg(feature = "use_std")]
 pub struct Sender<W: Write> {
     w: W,
 }
 
+#[cfg(feature = "use_std")]
 impl<W: Write> Sender<W> {
     pub fn new(w: W) -> Sender<W> {
         Sender::<W> {
@@ -70,11 +67,6 @@ impl<W: Write> Sender<W> {
             self.w.write(&code)?;
         }
 
-        #[cfg(not(feature = "use_std"))] {
-            self.w.write(&code)
-                .map_err(|_| Error::Io)?;
-        }
-
         Ok(())
     }
 }
@@ -83,6 +75,7 @@ impl<W: Write> Sender<W> {
 ///
 /// TODO: Add a recv() variant suitable for no_std use, e.g. one that
 /// takes a `&mut [u8]`.
+#[cfg(feature = "use_std")]
 pub struct Receiver<R: Read> {
 
     #[cfg_attr(not(feature = "use_std"), allow(dead_code))]
@@ -90,6 +83,7 @@ pub struct Receiver<R: Read> {
     r: R,
 }
 
+#[cfg(feature = "use_std")]
 impl<R: Read> Receiver<R> {
     pub fn new(r: R) -> Receiver<R> {
         Receiver::<R> {
@@ -97,7 +91,6 @@ impl<R: Read> Receiver<R> {
         }
     }
 
-    #[cfg(feature = "use_std")]
     pub fn recv(&mut self) -> Result<Vec<u8>> {
         let mut next_frame = Vec::new();
 
@@ -132,7 +125,7 @@ impl<R: Read> Receiver<R> {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "use_std")))]
 mod tests {
     use channel::Channel;
     use error::Error;

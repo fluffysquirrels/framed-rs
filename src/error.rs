@@ -10,7 +10,7 @@ use core::result;
 
 pub type Result<T> = result::Result<T, Error>;
 
-#[cfg_attr(feature = "use_std", derive(Debug))]
+#[derive(Debug)]
 pub enum Error {
     /// COBS decode failed
     CobsDecodeFailed,
@@ -21,12 +21,6 @@ pub enum Error {
     /// Forwarded io::Error.
     #[cfg(feature = "use_std")]
     Io(io::Error),
-
-    /// Forwarded Io error.
-    ///
-    /// TODO: Store some extra value here.
-    #[cfg(not(feature = "use_std"))]
-    Io,
 }
 
 #[cfg(feature = "use_std")]
