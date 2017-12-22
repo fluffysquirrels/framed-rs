@@ -1,19 +1,24 @@
-//! Sending and receiving frames (arrays of bytes of varied length)
-//! over streams of bytes.
+//! Send and receive slices of bytes over lossy streams of bytes.
 //!
 //! Conforming to / inspired by the [data link layer][dll] or layer 2
 //! in the OSI networking model, this module enables sending slices of
-//! bytes of definite length over an underlying transport that only
-//! supports sending an unstructured stream of bytes (a [physical
+//! bytes of definite length over an underlying lossy transport that
+//! only supports sending an unstructured stream of bytes (a [physical
 //! layer][pl], such as ITM, UART or SPI).
 //!
 //! [dll]: https://en.wikipedia.org/wiki/Data_link_layer
 //! [pl]: https://en.wikipedia.org/wiki/Physical_layer
 //!
+//! The transport may corrupt the stream by dropping or modifying some
+//! bytes en route. When the transport returns corrupt data the
+//! decoder may return errors or corrupted payloads, but if the
+//! transport starts operating without losses again the decoder should
+//! return new uncorrupted frames.
+//!
 //! ## Encoding
 //!
 //! Currently the encoding is:
-//! * The frame [COBS]-encoded to remove bytes equal to zero
+//! * The payload [COBS]-encoded to remove bytes equal to zero
 //! * A terminating zero byte.
 //! [COBS]: https://en.wikipedia.org/wiki/Consistent_Overhead_Byte_Stuffing
 //!
