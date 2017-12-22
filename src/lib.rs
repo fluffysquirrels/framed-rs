@@ -18,7 +18,7 @@
 //! ## Encoding
 //!
 //! Currently the encoding is:
-//! * The payload [COBS]-encoded to remove bytes equal to zero
+//! * The "body": payload [COBS]-encoded to remove bytes equal to zero
 //! * A terminating zero byte.
 //! [COBS]: https://en.wikipedia.org/wiki/Consistent_Overhead_Byte_Stuffing
 //!
@@ -76,7 +76,7 @@
 //! instance.
 
 #![deny(warnings)]
-#![feature(conservative_impl_trait)]
+#![cfg_attr(test, feature(conservative_impl_trait))]
 
 #![cfg_attr(not(feature = "use_std"), no_std)]
 
@@ -166,7 +166,12 @@ const FOOTER_LEN: usize = 1;
 /// Encode the supplied payload data as a frame at the beginning of
 /// the supplied buffer `dest`.
 ///
-/// Returns the length of the frame it has written.
+/// Returns the number of bytes it has written to the buffer.
+///
+/// # Panics
+///
+/// This function will panic if `dest` is not large enough for the encoded frame.
+/// Ensure `dest.len() >= max_encoded_len(p.len())`.
 pub fn encode_to_slice(p: &Payload, dest: &mut [u8]) -> Result<usize> {
     // Panic if code won't fit in `dest` because this is a programmer error.
     assert!(max_encoded_len(p.len())? <= dest.len());
@@ -183,17 +188,25 @@ pub fn encode_to_slice(p: &Payload, dest: &mut [u8]) -> Result<usize> {
 
 /// Encode the supplied payload data as a frame and return it on the heap.
 #[cfg(feature = "use_std")]
-pub fn encode_to_box(_p: &Payload) -> Result<BoxEncoded> {
-    unimplemented!()
+pub fn encode_to_box(p: &Payload) -> Result<BoxEncoded> {
+    let mut buf = vec![0; max_encoded_len(p.len())?];
+    let len = encode_to_slice(p, &mut *buf)?;
+    buf.truncate(len);
+    Ok(BoxEncoded::from(buf))
 }
 
 /// Encode the supplied payload data as a frame and write it to the
 /// supplied `Write`.
 ///
+/// This function will not call `flush` on the writer; the caller do
+/// so if this is required.
+///
 /// Returns the length of the frame it has written.
 #[cfg(feature = "use_std")]
-pub fn encode_to_writer<W: Write>(_p: &Payload, _w: W) -> Result<usize> {
-    unimplemented!()
+pub fn encode_to_writer<W: Write>(p: &Payload, w: &mut W) -> Result<usize> {
+    let b = encode_to_box(p)?;
+    w.write_all(&*b.0)?;
+    Ok(b.len())
 }
 
 /// Decode the supplied encoded frame, placing the payload at the
@@ -204,28 +217,91 @@ pub fn encode_to_writer<W: Write>(_p: &Payload, _w: W) -> Result<usize> {
 /// whole buffer including `FRAME_END_SYMBOL` to this function for
 /// decoding.
 ///
+/// If there is more than 1 FRAME_END_SYMBOL within `e`, the result
+/// is undefined. Make sure you only pass 1 frame at a time.
+///
 /// Returns the length of the payload it has decoded.
 ///
-/// ## Errors
+/// # Errors
 ///
-/// Returns an error if `f` does not contain a complete encoded frame,
-/// which would have `FRAME_END_SYMBOL` (a `u8`) as the last byte.
-pub fn decode_to_slice(_e: &Encoded, _dest: &mut [u8])
+/// Returns `Err(Error::EofDuringFrame` if `e` is not a complete
+/// encoded frame, which should have `FRAME_END_SYMBOL` as the last
+/// byte.
+///
+/// # Panics
+///
+/// This function will panic if `dest` is not large enough for the decoded frame.
+/// Ensure `dest.len() >= max_decoded_len(e.len())?`.
+pub fn decode_to_slice(e: &Encoded, mut dest: &mut [u8])
 -> Result<usize> {
-    unimplemented!()
+    assert!(dest.len() >= max_decoded_len(e.len())?);
+
+    #[cfg(feature = "trace")] {
+        println!("framed: Encoded input = {:?}", e);
+    }
+
+    if e[e.len()-1] != FRAME_END_SYMBOL {
+        return Err(Error::EofDuringFrame)
+    }
+
+    assert_eq!(e[e.len() - 1], FRAME_END_SYMBOL);
+    // Just the body (COBS-encoded payload).
+    let body = &e[0..(e.len()-1)];
+
+    let len = cobs::decode(body, &mut dest)
+                   .map_err(|_| Error::CobsDecodeFailed);
+
+    #[cfg(feature = "trace")] {
+        println!("framed: frame = {:?}\n\
+                  framed: body = {:?}\n\
+                  framed: decoded = {:?}",
+                 frame, body, dest[0..len]);
+    }
+
+    Ok(len?)
 }
 
 /// Decode the supplied encoded frame, returning the payload on the heap.
 #[cfg(feature = "use_std")]
-pub fn decode_to_box(_e: &Encoded) -> Result<BoxPayload> {
-    unimplemented!()
+pub fn decode_to_box(e: &Encoded) -> Result<BoxPayload> {
+    let mut buf = vec![0; max_decoded_len(e.len())?];
+    let len = decode_to_slice(e, &mut buf)?;
+    buf.truncate(len);
+    Ok(BoxPayload::from(buf))
 }
 
 /// Reads bytes from the supplied `Read` until it has a complete
 /// encoded frame, then decodes the frame, returning the payload on the heap.
 #[cfg(feature = "use_std")]
-pub fn decode_from_reader<R: Read>(_r: &Read) -> Result<BoxPayload> {
-    unimplemented!()
+pub fn decode_from_reader<R: Read>(r: &mut Read) -> Result<BoxPayload> {
+    // Read until FRAME_END_SYMBOL
+    let mut next_frame = Vec::new();
+    let mut b = 0u8;
+    loop {
+        let res = r.read(ref_slice_mut(&mut b));
+        #[cfg(feature = "trace")] {
+            println!("framed: Read result = {:?}", res);
+        }
+        match res {
+            Err(ref e) if e.kind() == io::ErrorKind::UnexpectedEof =>
+                return Err(Error::EofDuringFrame),
+            Ok(0) =>
+                return Err(Error::EofDuringFrame),
+            Err(e) => return Err(Error::from(e)),
+            Ok(_) => (),
+        };
+
+        #[cfg(feature = "trace")] {
+            println!("framed: Read byte = {}", b);
+        }
+        next_frame.push(b);
+        if b == FRAME_END_SYMBOL {
+            break;
+        }
+    }
+    assert_eq!(next_frame[next_frame.len()-1], FRAME_END_SYMBOL);
+
+    decode_to_box(&*next_frame)
 }
 
 /// Returns the maximum possible decoded length given a frame with
@@ -272,14 +348,34 @@ impl<W: Write> Sender<W> {
         self.w
     }
 
-    /// Encode the supplied payload as a frame and send it on the
-    /// inner `io::Write`.
-    pub fn send(&mut self, p: &Payload) -> Result<()> {
-        let buf_len = max_encoded_len(p.len())?;
-        let mut buf = vec![0; buf_len];
-        let code_len = encode_to_slice(p, &mut buf[0..])?;
-        self.w.write(&buf[0..code_len])?;
-        Ok(())
+    /// Flush all buffered data. Includes calling `flush` on the inner
+    /// writer.
+    pub fn flush(&mut self) -> Result<()> {
+        Ok(self.w.flush()?)
+    }
+
+    /// Queue the supplied payload for transmission.
+    ///
+    /// This `Sender` may buffer the data indefinitely, as may the
+    /// inner writer. To ensure all buffered data has been
+    /// transmitted call [`flush`](#method.flush).
+    ///
+    /// See also: [`send`](#method.send)
+    pub fn queue(&mut self, p: &Payload) -> Result<usize> {
+        encode_to_writer(p, &mut self.w)
+    }
+
+    /// Encode the supplied payload as a frame, write it to the
+    /// inner writer, then flush.
+    ///
+    /// Ensures the data has been transmitted before returning to the
+    /// caller.
+    ///
+    /// See also: [`queue`](#method.queue)
+    pub fn send(&mut self, p: &Payload) -> Result<usize> {
+        let len = self.queue(p)?;
+        self.flush()?;
+        Ok(len)
     }
 }
 
@@ -307,36 +403,7 @@ impl<R: Read> Receiver<R> {
     /// Receive an encoded frame from the inner `io::Read`, decode it
     /// and return the payload.
     pub fn recv(&mut self) -> Result<BoxPayload> {
-        let mut next_frame = Vec::new();
-
-        let mut b = 0u8;
-        loop {
-            let res = self.r.read(ref_slice_mut(&mut b));
-            #[cfg(feature = "trace")] {
-                println!("framed: Read result = {:?}", res);
-            }
-            match res {
-                Err(ref e) if e.kind() == io::ErrorKind::UnexpectedEof =>
-                    return Err(Error::EofDuringFrame),
-                Ok(0) =>
-                    return Err(Error::EofDuringFrame),
-                Err(e) => return Err(Error::from(e)),
-                Ok(_) => (),
-            };
-
-            #[cfg(feature = "trace")] {
-                println!("framed: Read byte = {}", b);
-            }
-            if b == FRAME_END_SYMBOL {
-                break;
-            } else {
-                next_frame.push(b);
-            }
-        }
-        assert!(b == FRAME_END_SYMBOL);
-        let v = cobs::decode_vec(&next_frame)
-                     .map_err(|_| Error::CobsDecodeFailed)?;
-        Ok(BoxPayload::from(v))
+        decode_from_reader::<R>(&mut self.r)
     }
 }
 
@@ -370,6 +437,8 @@ mod tests {
     }
 }
 
+// TODO: Add tests for all encode_*, decode_* functions.
+
 #[cfg(all(test, feature = "use_std"))]
 mod rw_tests {
     use channel::Channel;
@@ -381,7 +450,7 @@ mod rw_tests {
     fn one_frame() {
         let (mut tx, mut rx) = pair();
         let p = [0x00, 0x01, 0x02];
-        tx.send(&p).unwrap();
+        assert_eq!(tx.send(&p).unwrap(), 5);
         let recvd = rx.recv().unwrap();
         assert_eq!(*recvd, p);
     }
@@ -391,14 +460,14 @@ mod rw_tests {
         let (mut tx, mut rx) = pair();
         {
             let sent = [0x00, 0x01, 0x02];
-            tx.send(&sent).unwrap();
+            assert_eq!(tx.send(&sent).unwrap(), 5);
             let recvd = rx.recv().unwrap();
             assert_eq!(*recvd, sent);
         }
 
         {
             let sent = [0x10, 0x11, 0x12];
-            tx.send(&sent).unwrap();
+            assert_eq!(tx.send(&sent).unwrap(), 5);
             let recvd = rx.recv().unwrap();
             assert_eq!(*recvd, sent);
         }
