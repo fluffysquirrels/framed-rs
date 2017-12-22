@@ -1,6 +1,6 @@
 [package]
 name = "framed"
-version = "0.1.0"
+version = "0.1.1"
 description = "Send and receive slices of bytes over lossy streams of bytes."
 authors = ["Alex Helfet <alex.helfet@gmail.com>"]
 categories = ["embedded", "encoding", "network-programming"]
