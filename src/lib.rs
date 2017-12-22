@@ -63,9 +63,23 @@ pub struct Encoded(pub [u8]);
 
 const END_SYMBOL: u8 = 0;
 
+const HEADER_LEN: usize = 0;
+
+const FOOTER_LEN: usize = 1;
+
 /// TODO
 pub fn to_slice(p: &Payload, dest: &mut [u8]) -> Result<usize> {
-    unimplemented!()
+    // Panic if code won't fit in `dest` because this is a programmer error.
+    assert!(max_encoded_len(p.0.len())? <= dest.len());
+
+    let cobs_len = cobs::encode(&p.0, &mut dest[HEADER_LEN..]);
+    let footer_idx = HEADER_LEN + cobs_len;
+    dest[footer_idx] = END_SYMBOL;
+
+    #[cfg(feature = "trace")] {
+        println!("framed: Frame code = {:?}", dest[0..(footer_idx + 1)]);
+    }
+    Ok(cobs_len + HEADER_LEN + FOOTER_LEN)
 }
 
 /// TODO
@@ -80,12 +94,10 @@ pub fn to_writer<W: Write>(_p: &Payload, _w: W) -> Result<usize> {
     unimplemented!()
 }
 
-
 /// TODO
 pub fn from_slice_to_slice(_src: &[u8], _dst: &mut [u8]) -> Result<usize> {
     unimplemented!()
 }
-
 
 /// TODO
 #[cfg(feature = "use_std")]
@@ -99,16 +111,26 @@ pub fn from_reader<R: Read>(_r: &Read) -> Result<Box<Payload>> {
     unimplemented!()
 }
 
-
-/// TODO
-pub fn decoded_length(_code: &Encoded) -> Result<usize> {
-    unimplemented!()
+/// Returns the maximum possible decoded length given a frame with
+/// the encoded length supplied.
+pub fn max_decoded_len(code_len: usize) -> Result<usize> {
+    let framing_len = HEADER_LEN + FOOTER_LEN;
+    if code_len < framing_len {
+        return Err(Error::EncodedFrameTooShort)
+    }
+    let cobs_len = code_len - framing_len;
+    // If every byte is a 0x00, then COBS-encoded data will be the
+    // same length of 0x01.
+    let cobs_decode_limit = cobs_len;
+    Ok(cobs_decode_limit)
 }
 
-
-/// TODO
-pub fn encoded_length(_f: &Frame) -> Result<usize> {
-    unimplemented!()
+/// Returns the maximum possible encoded length given a frame with
+/// the decoded length supplied.
+pub fn max_encoded_len(frame_len: usize) -> Result<usize> {
+    Ok(HEADER_LEN
+        + cobs::max_encoding_length(frame_len)
+        + FOOTER_LEN)
 }
 
 
@@ -197,8 +219,38 @@ impl<R: Read> Receiver<R> {
     }
 }
 
-#[cfg(all(test, not(feature = "use_std")))]
+#[cfg(test)]
 mod tests {
+    use super::*;
+
+    #[test]
+    fn max_encoded_len_ok() {
+        assert_eq!(max_encoded_len(0)  .unwrap(), 1);
+        assert_eq!(max_encoded_len(1)  .unwrap(), 3);
+        assert_eq!(max_encoded_len(2)  .unwrap(), 4);
+        assert_eq!(max_encoded_len(254).unwrap(), 256);
+        assert_eq!(max_encoded_len(255).unwrap(), 258);
+    }
+
+    #[test]
+    fn max_decoded_len_too_short() {
+        match max_decoded_len(0) {
+            Err(Error::EncodedFrameTooShort) => (),
+            e @ _ => panic!("Bad output: {:?}", e)
+        }
+    }
+
+    #[test]
+    fn max_decoded_len_ok() {
+        assert_eq!(max_decoded_len(1)  .unwrap(), 0);
+        assert_eq!(max_decoded_len(2)  .unwrap(), 1);
+        assert_eq!(max_decoded_len(3)  .unwrap(), 2);
+        assert_eq!(max_decoded_len(255).unwrap(), 254);
+    }
+}
+
+#[cfg(all(test, not(feature = "use_std")))]
+mod rw_tests {
     use channel::Channel;
     use error::Error;
     use std::io::{Read, Write};

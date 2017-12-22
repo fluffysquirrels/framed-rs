@@ -15,8 +15,11 @@ pub enum Error {
     /// COBS decode failed
     CobsDecodeFailed,
 
-    /// End of file while reading a frame
+    /// End of data while reading a frame
     EofDuringFrame,
+
+    /// The supplied value was too short to be an encoded frame
+    EncodedFrameTooShort,
 
     /// Forwarded io::Error.
     #[cfg(feature = "use_std")]
