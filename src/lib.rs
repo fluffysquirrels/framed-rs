@@ -152,17 +152,11 @@ impl<W: Write> Sender<W> {
         self.w
     }
 
-    pub fn send(&mut self, p: &[u8]) -> Result<()> {
-        let mut code = cobs::encode_vec(p);
-        code.push(END_SYMBOL);
-        #[cfg(feature = "trace")] {
-            println!("framed: Sending code = {:?}", code);
-        }
-
-        #[cfg(feature = "use_std")] {
-            self.w.write(&code)?;
-        }
-
+    pub fn send(&mut self, p: &Payload) -> Result<()> {
+        let buf_len = max_encoded_len(p.0.len())?;
+        let mut buf = vec![0; buf_len];
+        let code_len = to_slice(p, &mut buf[0..])?;
+        self.w.write(&buf[0..code_len])?;
         Ok(())
     }
 }
