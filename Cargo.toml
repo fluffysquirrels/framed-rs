@@ -7,8 +7,6 @@ categories = ["embedded", "encoding", "network-programming"]
 keywords = ["no_std", "networking", "datalink", "protocol", "embedded"]
 readme = "README.md"
 license = "MIT OR Apache-2.0"
-
-documentation = "https://docs.rs/framed"
 repository = "https://github.com/fluffysquirrels/framed-rs"
 
 [badges.travis-ci]
