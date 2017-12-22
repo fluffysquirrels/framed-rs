@@ -2,7 +2,11 @@
 
 Rust crate to send and receive slices of bytes over lossy streams of bytes.
 
-See [rustdoc on docs.rs](https://docs.rs/crate/framed)
+[![Crate](https://img.shields.io/crates/v/badge.svg)](https://crates.io/crates/framed)
+
+[![Documentation](https://docs.rs/framed/badge.svg)](https://docs.rs/framed)
+
+[![Build Status](https://travis-ci.org/fluffysquirrels/framed-rs.svg)](https://travis-ci.org/fluffysquirrels/framed-rs)
 
 ## License
 
