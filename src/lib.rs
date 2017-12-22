@@ -50,7 +50,64 @@ use ref_slice::ref_slice_mut;
 #[cfg(feature = "use_std")]
 use std::io::{self, Read, Write};
 
+/// TODO
+pub struct Frame([u8]);
+
+/// TODO
+pub struct Encoded([u8]);
+
 const FRAME_END: u8 = 0;
+
+/// TODO
+pub fn to_slice(_f: &Frame, _dest: &mut [u8]) -> Result<usize> {
+    unimplemented!()
+}
+
+/// TODO
+#[cfg(feature = "use_std")]
+pub fn to_box(_f: &Frame) -> Result<Box<Encoded>> {
+    unimplemented!()
+}
+
+
+/// TODO
+#[cfg(feature = "use_std")]
+pub fn to_writer<W: Write>(_f: &Frame, _w: W) -> Result<usize> {
+    unimplemented!()
+}
+
+
+/// TODO
+pub fn from_slice_to_slice(_src: &[u8], _dst: &mut [u8]) -> Result<usize> {
+    unimplemented!()
+}
+
+
+/// TODO
+#[cfg(feature = "use_std")]
+pub fn from_slice_to_box(_src: &Encoded) -> Result<Box<Frame>> {
+    unimplemented!()
+}
+
+
+/// TODO
+#[cfg(feature = "use_std")]
+pub fn from_reader<R: Read>(_r: &Read) -> Result<Box<Frame>> {
+    unimplemented!()
+}
+
+
+/// TODO
+pub fn decoded_length(_code: &Encoded) -> Result<usize> {
+    unimplemented!()
+}
+
+
+/// TODO
+pub fn encoded_length(_f: &Frame) -> Result<usize> {
+    unimplemented!()
+}
+
 
 /// Sends frames over an underlying `io::Write` instance.
 #[cfg(feature = "use_std")]
