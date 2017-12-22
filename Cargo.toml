@@ -12,7 +12,7 @@ documentation = "https://docs.rs/framed"
 repository = "https://github.com/fluffysquirrels/framed-rs"
 
 [badges.travis-ci]
-repository = "https://github.com/fluffysquirrels/framed-rs"
+repository = "fluffysquirrels/framed-rs"
 branch = "master"
 
 [dependencies]
