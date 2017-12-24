@@ -43,6 +43,29 @@ impl<W: Write, T: Serialize> Sender<W, T> {
     ///
     /// See also: [`send`](#method.send)
     pub fn queue(&mut self, v: &T) -> Result<usize> {
+        // This uses a dynamically allocated buffer.
+        //
+        // I couldn't get a no_std version to compile with a stack-allocated
+        // buffer as [0u8; size_of::<T>()] due to compiler errors like:
+        // ```
+        // error[E0401]: can't use type parameters from outer function; try using a local type parameter instead
+        //   --> src/typed.rs:46:39
+        //    |
+        // 46 |         const _sbl: usize = size_of::<T>();
+        //    |                                       ^ use of type variable from outer function
+        // ```
+        // I think this may require const generics
+        // (rust-lang tracking issue:
+        // https://github.com/rust-lang/rust/issues/44580).
+        //
+        // When I need to write a no_std version I see a few easy options:
+        // 1. Caller supplies a reference to a buffer, we can assert! that
+        //    it's long enough. Annoying to use.
+        // 2. Choose a reasonable length buffer and assert it's long enough.
+        //    Won't work for large enough structs, may consume an inappropriate
+        //    amount of memory for embedded use.
+        // 3. Provide overloads for 1 and 2. For most cases the fixed size
+        //    buffer will be fine, and if not you can provide your own.
         let mut ser_buf = vec![0u8; size_of::<T>()];
 
         let ser_len = ssmarshal::serialize(&mut ser_buf, v)?;
@@ -50,7 +73,6 @@ impl<W: Write, T: Serialize> Sender<W, T> {
         #[cfg(feature = "trace")] {
             println!("framed: Serialized = {:?}", ser);
         }
-
         super::encode_to_writer(&ser, &mut self.w)
     }
 
