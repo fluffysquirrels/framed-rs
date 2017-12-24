@@ -47,11 +47,11 @@
 //!
 //! ```rust,ignore
 //! /// Arbitrary user data.
-//! pub struct Payload(pub [u8]);
+//! pub type Payload = [u8];
 //!
 //! /// Data that is encoded as a frame. It is ready to send, or may have
 //! /// just been received.
-//! pub struct Encoded(pub [u8]);
+//! pub type Encoded = [u8];
 //!
 //! /// Heap-allocated user data used as a return type.
 //! #[cfg(feature = "use_std")]
