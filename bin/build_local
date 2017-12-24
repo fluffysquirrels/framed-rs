@@ -3,10 +3,16 @@ set -ex
 
 # A simple build script to run locally.
 
+rustup toolchain update stable;
+rustup toolchain update beta;
+rustup toolchain update nightly;
+
 cargo +stable  build --verbose;
+cargo +beta  build --verbose;
 
 cargo +nightly test --verbose;
 cargo +nightly test --verbose --no-default-features;
 
 cargo +stable  doc --verbose;
+cargo +beta  doc --verbose;
 cargo +nightly doc --verbose;
