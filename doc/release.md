@@ -5,6 +5,7 @@
 1. Check [Travis build][travis]: [![Build Status](https://travis-ci.org/fluffysquirrels/framed-rs.svg)][travis].
    [travis]: https://travis-ci.org/fluffysquirrels/framed-rs
 1. Increment version number in Cargo.toml (major version if breaking changes).
+1. Commit to update the version number.
 1. Add a git tag for the new version number. Push it to [GitHub][github].
 1. Publish with `bin/publish`.
 1. Check new version appears on
