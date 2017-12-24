@@ -82,22 +82,22 @@
 #![deny(warnings)]
 #![cfg_attr(not(feature = "use_std"), no_std)]
 
+// ## extern crate statements
 extern crate cobs;
 extern crate ref_slice;
+
 #[cfg(feature = "typed")]
 extern crate serde;
+
+#[macro_use]
+#[cfg(test)]
+extern crate serde_derive;
+
 #[cfg(feature = "typed")]
 extern crate ssmarshal;
 
-#[cfg(feature = "use_std")]
-use ref_slice::ref_slice_mut;
 
-#[cfg(feature = "use_std")]
-use std::io::{self, Read, Write};
-
-#[cfg(feature = "use_std")]
-use std::ops::Deref;
-
+// ## Sub-modules
 #[cfg(feature = "use_std")]
 pub mod channel;
 
@@ -107,6 +107,17 @@ use error::{Error, Result};
 
 #[cfg(feature = "typed")]
 pub mod typed;
+
+// ## use statements
+#[cfg(feature = "use_std")]
+use ref_slice::ref_slice_mut;
+
+#[cfg(feature = "use_std")]
+use std::io::{self, Read, Write};
+
+#[cfg(feature = "use_std")]
+use std::ops::Deref;
+
 
 /// Arbitrary user data.
 pub type Payload = [u8];

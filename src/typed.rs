@@ -87,3 +87,73 @@ impl<R: Read, T: DeserializeOwned> Receiver<R, T> {
         unimplemented!()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use channel::Channel;
+    use error::Error;
+    use std::io::{Read, Write};
+    use super::*;
+
+    #[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
+    struct Test {
+        i8: i8,
+        i16: i16,
+        i32: i32,
+        i64: i64,
+
+        u8: u8,
+        u16: u16,
+        u32: u32,
+        u64: u64,
+
+        some: Option<u8>,
+        none: Option<u8>,
+
+        a: [u8; 3],
+    }
+
+    #[test]
+    fn one() {
+        let (mut tx, mut rx) = pair();
+        let v = val();
+        tx.send(&v).unwrap();
+        let r = rx.recv().unwrap();
+        assert_eq!(v, r);
+    }
+
+    #[test]
+    fn empty_input() {
+        let (mut _tx, mut rx) = pair();
+        match rx.recv() {
+            Err(Error::EofDuringFrame) => (),
+            e @ _ => panic!("Bad value: {:?}", e)
+        }
+    }
+
+    fn val() -> Test {
+        Test {
+            i8: 1,
+            i16: 2,
+            i32: 3,
+            i64: 4,
+
+            u8: 10,
+            u16: 11,
+            u32: 12,
+            u64: 13,
+
+            some: Some(17),
+            none: None,
+
+            a: [1, 2, 3],
+        }
+    }
+
+    fn pair() -> (Sender<Box<Write>, Test>, Receiver<Box<Read>, Test>) {
+        let c = Channel::new();
+        let tx = Sender::new(Box::new(c.writer()) as Box<Write>);
+        let rx = Receiver::new(Box::new(c.reader()) as Box<Read>);
+        (tx, rx)
+    }
+}
