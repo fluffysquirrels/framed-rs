@@ -8,11 +8,13 @@ rustup toolchain update beta;
 rustup toolchain update nightly;
 
 cargo +stable  build --verbose;
-cargo +beta  build --verbose;
+cargo +stable  build --verbose --no-default-features;
+cargo +beta    build --verbose;
+cargo +beta    build --verbose --no-default-features;
 
 cargo +nightly test --verbose;
 cargo +nightly test --verbose --no-default-features;
 
 cargo +stable  doc --verbose;
-cargo +beta  doc --verbose;
+cargo +beta    doc --verbose;
 cargo +nightly doc --verbose;

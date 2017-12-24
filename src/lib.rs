@@ -36,6 +36,9 @@
 //!
 //! `trace`: Enable to print all data to stdout for testing.
 //!
+//! `typed`: Enables the [`typed`](typed/index.html) sub-module for sending and
+//!          receiving structs serialized with serde.
+//!
 //! ## API
 //!
 //! Payload data and encoded frame data have separate types to avoid
@@ -65,7 +68,7 @@
 //! See the `decode_*` and `encode_*` functions for simple uses with
 //! various input and output types.
 //!
-//! Note that data (`type`ed as `Payload` or `Encoded`) may be
+//! Note that data typed as `Payload` or `Encoded` may be
 //! efficiently passed as a function argument by reference, but is
 //! returned using an opaque struct (`BoxPayload`, `BoxEncoded`)
 //! containing a heap-allocated value instead. Consequently `encode_*`
@@ -82,8 +85,11 @@
 #![cfg_attr(not(feature = "use_std"), no_std)]
 
 extern crate cobs;
-
 extern crate ref_slice;
+#[cfg(feature = "typed")]
+extern crate serde;
+#[cfg(feature = "typed")]
+extern crate ssmarshal;
 
 #[cfg(feature = "use_std")]
 use ref_slice::ref_slice_mut;
@@ -101,7 +107,8 @@ pub mod error;
 #[allow(unused_imports)]
 use error::{Error, Result};
 
-
+#[cfg(feature = "typed")]
+pub mod typed;
 
 /// Arbitrary user data.
 pub type Payload = [u8];
