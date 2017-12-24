@@ -5,17 +5,16 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use ssmarshal;
 use std::io::{Read, Write};
-use std::marker::{PhantomData, Sized};
-#[allow(unused_imports)]
+use std::marker::PhantomData;
 use std::mem::size_of;
 
 /// Sends encoded structs of type `T` over an inner `io::Write` instance.
-pub struct Sender<W: Write, T: Serialize + Sized> {
+pub struct Sender<W: Write, T: Serialize> {
     w: W,
     _t: PhantomData<T>,
 }
 
-impl<W: Write, T: Serialize + Sized> Sender<W, T> {
+impl<W: Write, T: Serialize> Sender<W, T> {
     /// Construct a `Sender` that sends encoded structs over the supplied
     /// `io::Write`.
     pub fn new(w: W) -> Sender<W, T> {
@@ -44,10 +43,8 @@ impl<W: Write, T: Serialize + Sized> Sender<W, T> {
     ///
     /// See also: [`send`](#method.send)
     pub fn queue(&mut self, v: &T) -> Result<usize> {
-        // TODO: Calculate buffer length with size_of::<T>().
-        // let mut ser_buf = [0u8; size_of::<T>()];
+        let mut ser_buf = vec![0u8; size_of::<T>()];
 
-        let mut ser_buf = [0u8; 1024];
         let ser_len = ssmarshal::serialize(&mut ser_buf, v)?;
         let ser = &ser_buf[0..ser_len];
         #[cfg(feature = "trace")] {
