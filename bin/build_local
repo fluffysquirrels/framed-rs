@@ -3,18 +3,10 @@ set -ex
 
 # A simple build script to run locally.
 
-rustup toolchain update stable;
-rustup toolchain update beta;
-rustup toolchain update nightly;
-
-cargo +stable  build --verbose;
-cargo +stable  build --verbose --no-default-features;
-cargo +beta    build --verbose;
-cargo +beta    build --verbose --no-default-features;
-
-cargo +nightly test --verbose;
-cargo +nightly test --verbose --no-default-features;
-
-cargo +stable  doc --verbose;
-cargo +beta    doc --verbose;
-cargo +nightly doc --verbose;
+for tc in stable beta nightly; do
+    echo "Toolchain: ${tc}";
+    rustup toolchain update ${tc};
+    cargo +${tc} test --verbose;
+    cargo +${tc} test --verbose --no-default-features;
+    cargo +${tc} doc --verbose;
+done

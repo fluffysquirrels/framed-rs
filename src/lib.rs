@@ -80,8 +80,6 @@
 //! instance.
 
 #![deny(warnings)]
-#![cfg_attr(test, feature(conservative_impl_trait))]
-
 #![cfg_attr(not(feature = "use_std"), no_std)]
 
 extern crate cobs;
@@ -508,10 +506,10 @@ mod rw_tests {
         }
     }
 
-    fn pair() -> (Sender<impl Write>, Receiver<impl Read>) {
+    fn pair() -> (Sender<Box<Write>>, Receiver<Box<Read>>) {
         let c = Channel::new();
-        let tx = Sender::new(c.writer());
-        let rx = Receiver::new(c.reader());
+        let tx = Sender::new(Box::new(c.writer()) as Box<Write>);
+        let rx = Receiver::new(Box::new(c.reader()) as Box<Read>);
         (tx, rx)
     }
 }
