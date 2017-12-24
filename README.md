@@ -4,9 +4,23 @@ Rust crate to send and receive slices of bytes over lossy streams of bytes.
 
 [![Crate](https://img.shields.io/crates/v/framed.svg)](https://crates.io/crates/framed)
 
+Documentation:
 [![Documentation](https://docs.rs/framed/badge.svg)](https://docs.rs/framed)
 
-[![Build Status](https://travis-ci.org/fluffysquirrels/framed-rs.svg)](https://travis-ci.org/fluffysquirrels/framed-rs)
+This crate should build on the latest Rust stable, beta, and nightly
+toolchains.  When the cargo feature `use_std` is disabled (requires
+nightly toolchain), it should also build in embedded projects with
+`no_std`.
+
+## Development
+
+Source code and issues on Github:
+[![Github last commit](https://img.shields.io/github/last-commit/fluffysquirrels/framed-rs.svg)][github]
+   [github]: https://github.com/fluffysquirrels/framed-rs
+
+CI build on Travis CI: [![Build Status](https://travis-ci.org/fluffysquirrels/framed-rs.svg)](https://travis-ci.org/fluffysquirrels/framed-rs)
+
+Pull requests welcome.
 
 ## License
 
