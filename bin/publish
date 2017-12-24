@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
 set -ex
 
-cargo publish --target x86_64-unknown-linux-gnu --verbose
+rustup toolchain update stable;
+cargo +stable publish --target x86_64-unknown-linux-gnu --verbose;
