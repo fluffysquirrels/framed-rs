@@ -198,7 +198,7 @@ pub fn encode_to_slice(p: &Payload, dest: &mut [u8]) -> Result<usize> {
     dest[footer_idx] = FRAME_END_SYMBOL;
 
     #[cfg(feature = "trace")] {
-        println!("framed: Frame code = {:?}", dest[0..(footer_idx + 1)]);
+        println!("framed: Frame code = {:?}", &dest[0..(footer_idx + 1)]);
     }
     Ok(cobs_len + HEADER_LEN + FOOTER_LEN)
 }
@@ -266,16 +266,16 @@ pub fn decode_to_slice(e: &Encoded, mut dest: &mut [u8])
     let body = &e[0..(e.len()-1)];
 
     let len = cobs::decode(body, &mut dest)
-                   .map_err(|_| Error::CobsDecodeFailed);
+                   .map_err(|_| Error::CobsDecodeFailed)?;
 
     #[cfg(feature = "trace")] {
-        println!("framed: frame = {:?}\n\
+        println!("framed: dest = {:?}\n\
                   framed: body = {:?}\n\
                   framed: decoded = {:?}",
-                 frame, body, dest[0..len]);
+                 &dest, body, &dest[0..len]);
     }
 
-    Ok(len?)
+    Ok(len)
 }
 
 /// Decode the supplied encoded frame, returning the payload on the heap.

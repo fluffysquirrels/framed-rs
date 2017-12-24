@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 set -ex
 
-# A simple build script to run locally.
+# A simple build script to run locally before pushing.
 
-for tc in stable beta nightly; do
+for tc in nightly stable beta; do
     echo "Toolchain: ${tc}";
     rustup toolchain update ${tc};
     cargo +${tc} test --verbose;
     cargo +${tc} test --verbose --no-default-features;
+    cargo +${tc} test --verbose --features=trace;
     cargo +${tc} doc --verbose;
 done
