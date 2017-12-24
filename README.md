@@ -14,8 +14,9 @@ nightly toolchain), it should also build in embedded projects with
 
 ## Development
 
-Source code and issues on Github:
-[![Github last commit](https://img.shields.io/github/last-commit/fluffysquirrels/framed-rs.svg)][github]
+Source code and issues on GitHub:
+[![GitHub last commit](https://img.shields.io/github/last-commit/fluffysquirrels/framed-rs.svg)][github]
+
    [github]: https://github.com/fluffysquirrels/framed-rs
 
 CI build on Travis CI: [![Build Status](https://travis-ci.org/fluffysquirrels/framed-rs.svg)](https://travis-ci.org/fluffysquirrels/framed-rs)
