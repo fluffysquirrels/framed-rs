@@ -3,18 +3,19 @@
 use error::{Result};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-// use ssmarshal;
+use ssmarshal;
 use std::io::{Read, Write};
-use std::marker::PhantomData;
-
+use std::marker::{PhantomData, Sized};
+#[allow(unused_imports)]
+use std::mem::size_of;
 
 /// Sends encoded structs of type `T` over an inner `io::Write` instance.
-pub struct Sender<W: Write, T: Serialize> {
+pub struct Sender<W: Write, T: Serialize + Sized> {
     w: W,
     _t: PhantomData<T>,
 }
 
-impl<W: Write, T: Serialize> Sender<W, T> {
+impl<W: Write, T: Serialize + Sized> Sender<W, T> {
     /// Construct a `Sender` that sends encoded structs over the supplied
     /// `io::Write`.
     pub fn new(w: W) -> Sender<W, T> {
@@ -42,8 +43,18 @@ impl<W: Write, T: Serialize> Sender<W, T> {
     /// transmitted call [`flush`](#method.flush).
     ///
     /// See also: [`send`](#method.send)
-    pub fn queue(&mut self, _v: &T) -> Result<usize> {
-        unimplemented!();
+    pub fn queue(&mut self, v: &T) -> Result<usize> {
+        // TODO: Calculate buffer length with size_of::<T>().
+        // let mut ser_buf = [0u8; size_of::<T>()];
+
+        let mut ser_buf = [0u8; 1024];
+        let ser_len = ssmarshal::serialize(&mut ser_buf, v)?;
+        let ser = &ser_buf[0..ser_len];
+        #[cfg(feature = "trace")] {
+            println!("framed: Serialized = {:?}", ser);
+        }
+
+        super::encode_to_writer(&ser, &mut self.w)
     }
 
     /// Encode the supplied payload as a frame, write it to the
@@ -84,7 +95,9 @@ impl<R: Read, T: DeserializeOwned> Receiver<R, T> {
     /// Receive an encoded frame from the inner `io::Read`, decode it
     /// and return the payload.
     pub fn recv(&mut self) -> Result<T> {
-        unimplemented!()
+        let payload = super::decode_from_reader::<R>(&mut self.r)?;
+        let (v, _len) = ssmarshal::deserialize(&*payload)?;
+        Ok(v)
     }
 }
 
@@ -119,6 +132,7 @@ mod tests {
         let v = val();
         tx.send(&v).unwrap();
         let r = rx.recv().unwrap();
+        println!("r: {:#?}", r);
         assert_eq!(v, r);
     }
 
@@ -132,7 +146,7 @@ mod tests {
     }
 
     fn val() -> Test {
-        Test {
+        let v = Test {
             i8: 1,
             i16: 2,
             i32: 3,
@@ -147,7 +161,9 @@ mod tests {
             none: None,
 
             a: [1, 2, 3],
-        }
+        };
+        println!("Test value: {:#?}", v);
+        v
     }
 
     fn pair() -> (Sender<Box<Write>, Test>, Receiver<Box<Read>, Test>) {
