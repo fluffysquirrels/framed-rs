@@ -90,7 +90,7 @@ extern crate ref_slice;
 extern crate serde;
 
 #[macro_use]
-#[cfg(all(test, feature = "typed"))]
+#[cfg(all(test, feature = "typed", feature = "use_std"))]
 extern crate serde_derive;
 
 #[cfg(feature = "typed")]

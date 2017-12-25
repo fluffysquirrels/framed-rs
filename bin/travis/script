@@ -6,5 +6,6 @@ set -x
 
 cargo test --verbose;
 cargo test --verbose --no-default-features;
-cargo test --verbose --no-default-features --features=trace;
+cargo test --verbose --no-default-features --features=typed;
+cargo test --verbose --features=trace;
 cargo doc --verbose;

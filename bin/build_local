@@ -8,6 +8,7 @@ for tc in nightly stable beta; do
     rustup toolchain update ${tc};
     cargo +${tc} test --verbose;
     cargo +${tc} test --verbose --no-default-features;
+    cargo +${tc} test --verbose --no-default-features --features=typed;
     cargo +${tc} test --verbose --features=trace;
     cargo +${tc} doc --verbose;
 done
