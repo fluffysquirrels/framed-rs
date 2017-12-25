@@ -37,7 +37,7 @@
 //! `trace`: Enable to print all data to stdout for testing.
 //!
 //! `typed`: Enables the [`typed`](typed/index.html) sub-module for sending and
-//!          receiving structs serialized with serde.
+//!          receiving structs serialized with serde. Enabled by default.
 //!
 //! ## API
 //!
