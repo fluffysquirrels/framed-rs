@@ -2,7 +2,8 @@
 
 1. Push changes to [GitHub][github].
 1. Check build locally with `bin/build_local`.
-1. Check [Travis build][travis]: [![Build Status](https://travis-ci.org/fluffysquirrels/framed-rs.svg)][travis].
+1. Check [Travis build][travis]: [![Build Status](https://travis-ci.org/fluffysquirrels/framed-rs.svg)][travis]
+
    [travis]: https://travis-ci.org/fluffysquirrels/framed-rs
 1. Increment version number in Cargo.toml (major version if breaking changes).
 1. Commit to update the version number.
