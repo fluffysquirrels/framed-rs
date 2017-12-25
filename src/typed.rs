@@ -1,4 +1,13 @@
-//! Sending and receiving structs serialized with serde.
+//! Sending and receiving structs serialized with serde and
+//! [`ssmarshal`][ssmarshal].
+//!
+//! [ssmarshal]: https://crates.io/crates/ssmarshal
+//!
+//! `ssmarshal` uses a straightforward, compact serialization format
+//! that doesn't support compatibility between versions or dynamic
+//! length types (arrays, maps). Its lack of stability fits with the
+//! frame encoding in this crate: unsuitable for long-term storage or
+//! transmission between different versions of an application.
 //!
 //! This module currently requires `std`, the standard library.
 

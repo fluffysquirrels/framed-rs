@@ -1,6 +1,6 @@
 # `framed`
 
-Rust crate to send and receive slices of bytes over lossy streams of bytes.
+Rust crate to send and receive data over lossy streams of bytes.
 
 [![Crate](https://img.shields.io/crates/v/framed.svg)](https://crates.io/crates/framed)
 

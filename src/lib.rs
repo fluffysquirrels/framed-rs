@@ -1,4 +1,4 @@
-//! Send and receive slices of bytes over lossy streams of bytes.
+//! Send and receive data over lossy streams of bytes.
 //!
 //! Living in / inspired by the [data link layer][dll] or layer 2
 //! in the OSI networking model, this module enables sending slices of
