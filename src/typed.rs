@@ -1,4 +1,6 @@
 //! Sending and receiving structs serialized with serde.
+//!
+//! This module currently requires `std`, the standard library.
 
 use error::{Result};
 use serde::Serialize;

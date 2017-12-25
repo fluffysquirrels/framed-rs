@@ -90,7 +90,7 @@ extern crate ref_slice;
 extern crate serde;
 
 #[macro_use]
-#[cfg(test)]
+#[cfg(all(test, feature = "typed"))]
 extern crate serde_derive;
 
 #[cfg(feature = "typed")]
@@ -105,7 +105,7 @@ pub mod error;
 #[allow(unused_imports)]
 use error::{Error, Result};
 
-#[cfg(feature = "typed")]
+#[cfg(all(feature = "typed", feature = "use_std"))]
 pub mod typed;
 
 // ## use statements
