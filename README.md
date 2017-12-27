@@ -23,6 +23,21 @@ CI build on Travis CI: [![Build Status](https://travis-ci.org/fluffysquirrels/fr
 
 Pull requests welcome.
 
+## Sub-crates
+
+* `framed` in directory `./framed`:
+
+    The core library.
+
+* `framed_decode` in directory `./decode`:
+
+    A command line tool to decode data encoded by the library.
+
+* `framed_test_type` in directory `./test_type`:
+
+    A crate for testing `framed`: a library with encodable types
+    and a binary that outputs encoded data.
+
 ## License
 
 Licensed under either of

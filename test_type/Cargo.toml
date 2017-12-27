@@ -2,7 +2,10 @@
 name = "framed_test_type"
 version = "0.1.0"
 authors = ["Alex Helfet <alex.helfet@gmail.com>"]
-description = "Send and receive data over lossy streams of bytes."
+description = """`framed` sends and receives data over lossy streams of bytes.
+
+`framed_test_type` is a crate for testing `framed`: a library with encodable types and a binary that outputs encoded data.
+"""
 categories = ["no-std", "embedded", "encoding", "network-programming"]
 keywords = ["no_std", "networking", "datalink", "protocol", "embedded"]
 readme = "../README.md"

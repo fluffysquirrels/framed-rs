@@ -2,9 +2,9 @@
 name = "framed_decode"
 version = "0.1.0"
 authors = ["Alex Helfet <alex.helfet@gmail.com>"]
-description = """Send and receive data over lossy streams of bytes.
+description = """`framed` sends and receives data over lossy streams of bytes.
 
-TODO.
+`framed_decode` is a command line tool to decode data encoded by the `framed` library.
 """
 categories = ["no-std", "embedded", "encoding", "network-programming"]
 keywords = ["no_std", "networking", "datalink", "protocol", "embedded"]
