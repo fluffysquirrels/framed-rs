@@ -75,7 +75,6 @@ dependencies = [
  "clap 2.29.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "derive-error 0.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "framed 0.1.4",
- "framed_test_type 0.1.0",
 ]
 
 [[package]]

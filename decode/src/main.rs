@@ -6,7 +6,7 @@ extern crate clap;
 extern crate derive_error;
 extern crate framed;
 
-include!("dynamic.rs");
+include!(env!("FRAMED_DECODE_DYNAMIC_RS"));
 
 mod error;
 use error::{Error, Result};

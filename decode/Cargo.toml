@@ -20,7 +20,6 @@ branch = "master"
 clap = "^2.29.0"
 derive-error = "^0.0.4"
 framed = { path = "../framed" }
-framed_test_type = { path = "../test_type" }
 
 [features]
 default = ["typed"]
