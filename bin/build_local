@@ -10,5 +10,5 @@ for tc in nightly stable beta; do
     cargo +${tc} test --verbose --no-default-features;
     cargo +${tc} test --verbose --no-default-features --features=typed;
     cargo +${tc} test --verbose --features=trace;
-    cargo +${tc} doc --verbose;
+    cargo +${tc} doc --verbose --no-deps;
 done

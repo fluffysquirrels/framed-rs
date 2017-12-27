@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
+# TODO: Fix me.
+
 echo "TRAVIS_RUST_VERSION: '${TRAVIS_RUST_VERSION}'"
 set -x
 
@@ -8,4 +10,4 @@ cargo test --verbose;
 cargo test --verbose --no-default-features;
 cargo test --verbose --no-default-features --features=typed;
 cargo test --verbose --features=trace;
-cargo doc --verbose;
+cargo doc --verbose --no-deps;
