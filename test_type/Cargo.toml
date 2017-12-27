@@ -17,3 +17,7 @@ branch = "master"
 framed = { path = "../framed" }
 serde = "^1.0"
 serde_derive = "^1.0"
+
+[[bin]]
+name = "framed_test_type"
+doc = false
