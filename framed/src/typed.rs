@@ -170,7 +170,7 @@ mod tests {
     fn empty_input() {
         let (mut _tx, mut rx) = pair();
         match rx.recv() {
-            Err(Error::EofDuringFrame) => (),
+            Err(Error::EofBeforeFrame) => (),
             e @ _ => panic!("Bad value: {:?}", e)
         }
     }

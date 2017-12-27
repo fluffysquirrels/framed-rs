@@ -240,9 +240,11 @@ pub fn encode_to_writer<W: Write>(p: &Payload, w: &mut W) -> Result<usize> {
 ///
 /// # Errors
 ///
-/// Returns `Err(Error::EofDuringFrame` if `e` is not a complete
-/// encoded frame, which should have `FRAME_END_SYMBOL` as the last
-/// byte.
+/// Returns `Err(Error::EofDuringFrame`) if `e` contains >= 1 bytes of
+/// a frame, but not a complete frame. A complete frame should have
+/// `FRAME_END_SYMBOL` as the last byte.
+///
+/// Returns `Err(Error::EofBeforeFrame`) if `e.len()` is 0.
 ///
 /// # Panics
 ///
@@ -250,17 +252,21 @@ pub fn encode_to_writer<W: Write>(p: &Payload, w: &mut W) -> Result<usize> {
 /// Ensure `dest.len() >= max_decoded_len(e.len())?`.
 pub fn decode_to_slice(e: &Encoded, mut dest: &mut [u8])
 -> Result<usize> {
-    assert!(dest.len() >= max_decoded_len(e.len())?);
-
     #[cfg(feature = "trace")] {
         println!("framed: Encoded input = {:?}", e);
+    }
+
+    if e.len() == 0 {
+        return Err(Error::EofBeforeFrame);
     }
 
     if e[e.len()-1] != FRAME_END_SYMBOL {
         return Err(Error::EofDuringFrame)
     }
 
+    assert!(dest.len() >= max_decoded_len(e.len())?);
     assert_eq!(e[e.len() - 1], FRAME_END_SYMBOL);
+
     // Just the body (COBS-encoded payload).
     let body = &e[0..(e.len()-1)];
 
@@ -280,6 +286,9 @@ pub fn decode_to_slice(e: &Encoded, mut dest: &mut [u8])
 /// Decode the supplied encoded frame, returning the payload on the heap.
 #[cfg(feature = "use_std")]
 pub fn decode_to_box(e: &Encoded) -> Result<BoxPayload> {
+    if e.len() == 0 {
+        return Err(Error::EofBeforeFrame);
+    }
     let mut buf = vec![0; max_decoded_len(e.len())?];
     let len = decode_to_slice(e, &mut buf)?;
     buf.truncate(len);
@@ -299,12 +308,16 @@ pub fn decode_from_reader<R: Read>(r: &mut Read) -> Result<BoxPayload> {
             println!("framed: Read result = {:?}", res);
         }
         match res {
+            // In the 2 EOF cases defer to decode_to_box to return the
+            // correct error (EofBeforeFrame or EofDuringFrame).
             Err(ref e) if e.kind() == io::ErrorKind::UnexpectedEof =>
-                return Err(Error::EofDuringFrame),
+                return decode_to_box(&*next_frame),
             Ok(0) =>
-                return Err(Error::EofDuringFrame),
+                return decode_to_box(&*next_frame),
+
             Err(e) => return Err(Error::from(e)),
-            Ok(_) => (),
+            Ok(1) => (),
+            Ok(_) => unreachable!(),
         };
 
         #[cfg(feature = "trace")] {
@@ -510,6 +523,18 @@ mod rw_tests {
     #[test]
     fn empty_input() {
         let (mut _tx, mut rx) = pair();
+        match rx.recv() {
+            Err(Error::EofBeforeFrame) => (),
+            e @ _ => panic!("Bad value: {:?}", e)
+        }
+    }
+
+    #[test]
+    fn partial_input() {
+        let c = Channel::new();
+        let mut rx = Receiver::new(Box::new(c.reader()) as Box<Read>);
+        let mut tx_raw = c.writer();
+        tx_raw.write(&[0x01]).unwrap();
         match rx.recv() {
             Err(Error::EofDuringFrame) => (),
             e @ _ => panic!("Bad value: {:?}", e)

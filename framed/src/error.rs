@@ -20,8 +20,12 @@ pub enum Error {
     /// COBS decode failed
     CobsDecodeFailed,
 
-    /// End of data while reading a frame
+    /// End of data while reading a frame; we received some of a frame
+    /// but it was incomplete.
     EofDuringFrame,
+
+    /// End of data before a frame started; we received none of a frame.
+    EofBeforeFrame,
 
     /// The supplied value was too short to be an encoded frame
     EncodedFrameTooShort,
