@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -ex
+
+# A manual test for framed_decode.
+
+cargo run -p framed_test_type | cargo run -p framed_decode

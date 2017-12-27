@@ -30,6 +30,6 @@ fn try() -> Result<()> {
 
     loop {
         let v = r.recv()?;
-        println!("Received value of type {}: {:#?}", USER_TYPE_NAME, v);
+        println!("decode/main.rs: received value of type {}: {:#?}", USER_TYPE_NAME, v);
     }
 }

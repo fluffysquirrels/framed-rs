@@ -13,7 +13,7 @@ fn main() {
         b: 2,
     };
 
-    eprintln!("Sample value: {:#?}", t);
+    eprintln!("test_type/main.rs: Sending sample value: {:#?}", t);
     let mut s = Sender::<_, Test>::new(stdout());
     s.send(&t).unwrap();
 }
