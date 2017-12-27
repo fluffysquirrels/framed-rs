@@ -3,4 +3,11 @@ set -ex
 
 # A manual test for framed_decode.
 
-cargo run -p framed_test_type | cargo run -p framed_decode
+repo_dir="$(cd $(dirname ${BASH_SOURCE[0]} )/..; pwd )"
+
+cd ${repo_dir};
+
+cargo run -p framed_test_type > target/test_output;
+cat target/test_output | hd;
+cat target/test_output | cargo run -p framed_decode;
+seq 5 | xargs -I% cat target/test_output | cargo run -p framed_decode;
