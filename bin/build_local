@@ -3,9 +3,15 @@ set -ex
 
 # A simple build script to run locally before pushing.
 
+script_dir=$( cd $(dirname ${BASH_SOURCE[0]}); pwd )
+repo_dir=${script_dir}/..
+
 for tc in nightly stable beta; do
     echo "Toolchain: ${tc}";
     rustup toolchain update ${tc};
+
+    export CARGO_TARGET_DIR="${repo_dir}/target/build_local/${tc}"
+
     cargo +${tc} test --verbose;
     cargo +${tc} test --verbose --no-default-features;
     cargo +${tc} test --verbose --no-default-features --features=typed;
