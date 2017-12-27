@@ -102,8 +102,7 @@ extern crate ssmarshal;
 pub mod channel;
 
 pub mod error;
-#[allow(unused_imports)]
-use error::{Error, Result};
+pub use error::{Error, Result};
 
 #[cfg(all(feature = "typed", feature = "use_std"))]
 pub mod typed;

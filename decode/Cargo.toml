@@ -1,0 +1,32 @@
+[package]
+name = "framed_decode"
+version = "0.1.0"
+authors = ["Alex Helfet <alex.helfet@gmail.com>"]
+description = """Send and receive data over lossy streams of bytes.
+
+TODO.
+"""
+categories = ["no-std", "embedded", "encoding", "network-programming"]
+keywords = ["no_std", "networking", "datalink", "protocol", "embedded"]
+readme = "../README.md"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/fluffysquirrels/framed-rs"
+
+[badges.travis-ci]
+repository = "fluffysquirrels/framed-rs"
+branch = "master"
+
+[dependencies]
+clap = "^2.29.0"
+derive-error = "^0.0.4"
+framed = { path = "../framed" }
+framed_test_type = { path = "../test_type" }
+
+[features]
+default = ["typed"]
+
+# Enable to print all data to stdout for testing.
+trace = ["framed/trace"]
+
+# TODO.
+typed = ["framed/typed"]

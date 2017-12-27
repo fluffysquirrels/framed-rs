@@ -11,8 +11,10 @@ use std::result;
 #[cfg(not(feature = "use_std"))]
 use core::result;
 
+/// Type alias for results from this crate.
 pub type Result<T> = result::Result<T, Error>;
 
+/// Errors from this crate.
 #[derive(Debug)]
 pub enum Error {
     /// COBS decode failed
