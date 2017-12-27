@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -ex
+
+rustup toolchain update stable;
+cargo +stable publish --verbose --manifest-path framed/Cargo.toml;
