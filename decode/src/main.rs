@@ -9,7 +9,7 @@ extern crate framed;
 include!("dynamic.rs");
 
 mod error;
-use error::Result;
+use error::{Error, Result};
 
 // use clap::{App, Arg};
 use framed::typed::Receiver;
@@ -29,7 +29,16 @@ fn try() -> Result<()> {
     let mut r = Receiver::<_, UserType>::new(stdin());
 
     loop {
-        let v = r.recv()?;
-        println!("decode/main.rs: received value of type {}: {:#?}", USER_TYPE_NAME, v);
+        let v = r.recv();
+        match v {
+            Ok(v) => {
+                println!("decode/main.rs: received value of type {}: {:#?}",
+                         USER_TYPE_NAME, v);
+            },
+            Err(framed::Error::EofBeforeFrame) => return Ok(()),
+            Err(e) => return Err(Error::from(e)),
+        };
     }
+
+    // Not reached.
 }
