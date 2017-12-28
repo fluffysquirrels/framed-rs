@@ -9,59 +9,113 @@
 //! frame encoding in this crate: unsuitable for long-term storage or
 //! transmission between different versions of an application.
 //!
-//! TODO: Usage examples.
+//! ## Example usage from a `std` crate
+//!
+//! The `Sender` struct writes serialized and encoded values to an
+//! inner `std::io::Write` instance, and the `Receiver` struct reads
+//! and decodes values from an inner `std::io::Read` instance.
+//!
+//! ```rust
+//! # extern crate framed;
+//! # use framed::typed::*;
+//! # extern crate serde;
+//! # #[macro_use]
+//! # extern crate serde_derive;
+//! #
+//! # use std::io::Cursor;
+//! #
+//! # fn main() {
+//!     #[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
+//!     struct Test {
+//!         a: u8,
+//!         b: u16,
+//!     }
+//!
+//!     let input = Test { a: 1, b: 2 };
+//!
+//!     let mut data = vec![];
+//!     {
+//!         let mut sender = Sender::<_, Test>::new(&mut data);
+//!         sender.send(&input).expect("send ok");
+//!     }
+//!
+//!     // `data` now contains the encoded value.
+//!
+//!     let mut receiver = Receiver::<_, Test>::new(Cursor::new(data));
+//!     let output = receiver.recv().expect("recv ok");
+//!
+//!     assert_eq!(input, output);
+//! # }
+//! ```
+//!
+//! ## Example usage from a `no_std` crate
+//!
+//! The `encode_to_slice` and `decode_from_slice` functions offer an
+//! API for `no_std` crates that might not have a heap allocator
+//! available and cannot use `std::io::Read` or `std::io::Write`.
+//!
+//! ```rust
+//! # extern crate framed;
+//! # use framed::typed::*;
+//! # extern crate serde;
+//! # #[macro_use]
+//! # extern crate serde_derive;
+//! #
+//! # fn main() {
+//! #   #[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
+//! #   struct Test {
+//! #       a: u8,
+//! #       b: u16,
+//! #   }
+//! #
+//! #   let input = Test { a: 1, b: 2 };
+//! #
+//!     let mut ser_buf = [0u8; max_serialize_buf_len::<Test>()];
+//!     let mut encoded_buf = [0u8; max_encoded_len::<Test>()];
+//!     let encoded_len = encode_to_slice::<Test>(
+//!         &input,
+//!         &mut ser_buf,
+//!         &mut encoded_buf
+//!     ).expect("encode ok");
+//!     let encoded = &encoded_buf[0..encoded_len];
+//!
+//!     // `encoded` now contains the complete encoded frame.
+//!
+//!     let mut de_buf = [0u8; max_serialize_buf_len::<Test>()];
+//!     let output = decode_from_slice(encoded, &mut de_buf)
+//!                      .expect("decode ok");
+//!
+//!     assert_eq!(input, output);
+//! # }
+//! ```
 
 use ::{Encoded, TempBuffer};
-use error::{Result};
+use ::error::{Result};
+use core::marker::PhantomData;
+use core::mem::size_of;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use ssmarshal;
 #[cfg(feature = "use_std")]
 use std::io::{Read, Write};
-use core::marker::PhantomData;
-use core::mem::size_of;
 
 /// Serializes and encodes the supplied value `v` into destination
 /// buffer `dest`, using `ser_buf` as a temporary serialization buffer.
 ///
 /// Returns the number of bytes written to the beginning of `dest`.
 ///
-/// # Panics
+/// ## Panics
 ///
 /// This will panic if the supplied buffers are too small to serialize
-/// a value of `T`. Callers must ensure that
-/// `ser_buf.len() >= max_serialize_buf_len::<T>())` and
-/// `dest.len() >= max_encoded_len::<T>()`. See the example.
+/// a value of `T`. Callers must ensure that:
 ///
-/// # Example
+/// * `ser_buf.len() >= max_serialize_buf_len::<T>()` and
+/// * `dest.len() >= max_encoded_len::<T>()`.
 ///
-/// ```rust
-/// extern crate framed;
-/// use framed::typed::*;
-/// extern crate serde;
-/// #[macro_use]
-/// extern crate serde_derive;
+/// ## Examples
 ///
-/// #[derive(Deserialize, Serialize)]
-/// struct Test {
-///     a: u8,
-///     b: u16,
-/// }
-///
-/// fn main() {
-///     let mut ser_buf = [0u8; max_serialize_buf_len::<Test>()];
-///     let mut encoded_buf = [0u8; max_encoded_len::<Test>()];
-///     let encoded_len = encode_to_slice::<Test>(
-///         &Test { a: 1, b: 2 },
-///         &mut ser_buf,
-///         &mut encoded_buf
-///     ).expect("encode ok");
-///
-///     let encoded = &encoded_buf[0..encoded_len];
-///     // `encoded` now contains the complete encoded frame.
-/// }
-/// ```
-///
+/// See the [no_std usage example][ex] in the `typed` module documentation.
+/// [ex]: index.html#example-usage-from-a-no_std-crate
 pub fn encode_to_slice<T: DeserializeOwned + Serialize>(
     v: &T,
     ser_buf: &mut TempBuffer,
@@ -75,7 +129,23 @@ pub fn encode_to_slice<T: DeserializeOwned + Serialize>(
     ::encode_to_slice(ser, dest)
 }
 
-/// TODO.
+/// Decodes the supplied encoded frame `e`, then deserializes its
+/// payload as a value of type `T`, using `de_buf` as a temporary
+/// deserialization buffer.
+///
+/// Returns the deserialized value.
+///
+/// ## Panics
+///
+/// This will panic if the supplied buffer is too small to deserialize
+/// a value of `T`. Callers must ensure that:
+///
+/// * `de_buf.len() >= max_serialize_buf_len::<T>()`.
+///
+/// ## Examples
+///
+/// See the [no_std usage example][ex] in the `typed` module documentation.
+/// [ex]: index.html#example-usage-from-a-no_std-crate
 pub fn decode_from_slice<T: DeserializeOwned + Serialize>(
     e: &Encoded,
     de_buf: &mut TempBuffer
@@ -105,6 +175,11 @@ pub const fn max_serialize_buf_len<T: DeserializeOwned + Serialize>() -> usize {
 
 
 /// Sends encoded structs of type `T` over an inner `io::Write` instance.
+///
+/// ## Examples
+///
+/// See the [std usage example][ex] in the `typed` module documentation.
+/// [ex]: index.html#example-usage-from-a-std-crate
 #[cfg(feature = "use_std")]
 pub struct Sender<W: Write, T: Serialize> {
     w: W,
@@ -177,6 +252,11 @@ impl<W: Write, T: Serialize> Sender<W, T> {
 }
 
 /// Receives encoded structs of type `T` from an inner `io::Read` instance.
+///
+/// ## Examples
+///
+/// See the [std usage example][ex] in the `typed` module documentation.
+/// [ex]: index.html#example-usage-from-a-std-crate
 #[cfg(feature = "use_std")]
 pub struct Receiver<R: Read, T: DeserializeOwned> {
     r: R,
@@ -257,8 +337,8 @@ mod tests {
         #[test]
         fn roundtrip() {
             let input = test_val();
-            let mut ser_buf = [0u8; 100];
-            let mut enc_buf = [0u8; 100];
+            let mut ser_buf = [0u8; max_serialize_buf_len::<Test>()];
+            let mut enc_buf = [0u8; max_encoded_len::<Test>()];
             let len = super::encode_to_slice(
                 &input, &mut ser_buf, &mut enc_buf
             ).unwrap();
