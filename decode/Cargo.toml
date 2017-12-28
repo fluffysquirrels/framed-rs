@@ -24,10 +24,7 @@ framed = { path = "../framed" }
 serde_json = "^1.0.0"
 
 [features]
-default = ["typed"]
+default = []
 
 # Enable to print all data to stdout for testing.
 trace = ["framed/trace"]
-
-# TODO.
-typed = ["framed/typed"]
