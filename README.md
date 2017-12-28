@@ -31,7 +31,8 @@ Pull requests welcome.
 
 * `framed_decode` in directory `./decode`:
 
-    A command line tool to decode data encoded by the library.
+    A command line tool to decode data encoded by the library. See
+    `./decode/README.md` for its documentation.
 
 * `framed_test_type` in directory `./test_type`:
 
