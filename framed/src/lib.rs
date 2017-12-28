@@ -82,6 +82,15 @@
 //! For sending or receiving a stream of frames, consider the `Reader`
 //! and `Writer` structs that wrap an `io::Read` or `io::Write`
 //! instance.
+//!
+//! ## Example usage from a std crate
+//!
+//! TODO.
+//!
+//! ## Example usage from a no_std crate
+//!
+//! TODO.
+//!
 
 #![deny(warnings)]
 #![cfg_attr(not(feature = "use_std"), no_std)]
