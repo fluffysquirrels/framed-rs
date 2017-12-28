@@ -274,10 +274,9 @@ pub fn decode_to_slice(e: &Encoded, mut dest: &mut [u8])
                    .map_err(|_| Error::CobsDecodeFailed)?;
 
     #[cfg(feature = "trace")] {
-        println!("framed: dest = {:?}\n\
-                  framed: body = {:?}\n\
+        println!("framed: body = {:?}\n\
                   framed: decoded = {:?}",
-                 &dest, body, &dest[0..len]);
+                 body, &dest[0..len]);
     }
 
     Ok(len)
