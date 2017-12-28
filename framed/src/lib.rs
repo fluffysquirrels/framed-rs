@@ -53,6 +53,10 @@
 //! /// just been received.
 //! pub type Encoded = [u8];
 //!
+//! /// A buffer that is used as temporary storage.
+//! /// There are no guarantees on its contents after use.
+//! pub type TempBuffer = [u8];
+//!
 //! /// Heap-allocated user data used as a return type.
 //! #[cfg(feature = "use_std")]
 //! pub struct BoxPayload(_);
@@ -82,8 +86,15 @@
 #![deny(warnings)]
 #![cfg_attr(not(feature = "use_std"), no_std)]
 
+// TODO: Disable this when toolchain != nightly.
+#![feature(const_fn)]
+
 // ## extern crate statements
 extern crate cobs;
+
+#[cfg(feature = "use_std")]
+extern crate core;
+
 extern crate ref_slice;
 
 #[cfg(feature = "typed")]
@@ -124,6 +135,10 @@ pub type Payload = [u8];
 /// Data that is encoded as a frame. It is ready to send, or may have
 /// just been received.
 pub type Encoded = [u8];
+
+/// A buffer that is used as temporary storage.
+/// There are no guarantees on its contents after use.
+pub type TempBuffer = [u8];
 
 // Note: BoxPayload and BoxEncoded store data in a Vec<u8> as that's
 // what `cobs` returns us and converting them into a Box<[u8]> (with
@@ -193,9 +208,9 @@ const FOOTER_LEN: usize = 1;
 ///
 /// This function will panic if `dest` is not large enough for the encoded frame.
 /// Ensure `dest.len() >= max_encoded_len(p.len())`.
-pub fn encode_to_slice(p: &Payload, dest: &mut [u8]) -> Result<usize> {
+pub fn encode_to_slice(p: &Payload, dest: &mut Encoded) -> Result<usize> {
     // Panic if code won't fit in `dest` because this is a programmer error.
-    assert!(max_encoded_len(p.len())? <= dest.len());
+    assert!(max_encoded_len(p.len()) <= dest.len());
 
     let cobs_len = cobs::encode(&p, &mut dest[HEADER_LEN..]);
     let footer_idx = HEADER_LEN + cobs_len;
@@ -210,7 +225,7 @@ pub fn encode_to_slice(p: &Payload, dest: &mut [u8]) -> Result<usize> {
 /// Encode the supplied payload data as a frame and return it on the heap.
 #[cfg(feature = "use_std")]
 pub fn encode_to_box(p: &Payload) -> Result<BoxEncoded> {
-    let mut buf = vec![0; max_encoded_len(p.len())?];
+    let mut buf = vec![0; max_encoded_len(p.len())];
     let len = encode_to_slice(p, &mut *buf)?;
     buf.truncate(len);
     Ok(BoxEncoded::from(buf))
@@ -337,8 +352,10 @@ pub fn decode_from_reader<R: Read>(r: &mut Read) -> Result<BoxPayload> {
     decode_to_box(&*next_frame)
 }
 
-/// Returns the maximum possible decoded length given a frame with
-/// the encoded length supplied.
+/// Returns an upper bound for the decoded length of the payload
+/// within a frame with the encoded length supplied.
+///
+/// Useful for calculating an appropriate buffer length.
 pub fn max_decoded_len(code_len: usize) -> Result<usize> {
     let framing_len = HEADER_LEN + FOOTER_LEN;
     if code_len < framing_len {
@@ -351,14 +368,50 @@ pub fn max_decoded_len(code_len: usize) -> Result<usize> {
     Ok(cobs_decode_limit)
 }
 
-/// Returns the maximum possible encoded length for a frame with
+/// Returns an upper bound for the encoded length of a frame with
 /// the payload length supplied.
-pub fn max_encoded_len(payload_len: usize) -> Result<usize> {
-    Ok(HEADER_LEN
-        + cobs::max_encoding_length(payload_len)
-        + FOOTER_LEN)
+///
+/// Useful for calculating an appropriate buffer length.
+pub const fn max_encoded_len(payload_len: usize) -> usize {
+    HEADER_LEN
+        + cobs_max_encoded_len(payload_len)
+        + FOOTER_LEN
 }
 
+/// Copied from `cobs` crate to make a `const` version.
+///
+/// Source: https://github.com/awelkie/cobs.rs/blob/f8ff1ad2aa7cd069a924d75170d3def3fa6df10b/src/lib.rs#L183-L188
+///
+/// TODO: Submit a PR to `cobs` to make `cobs::max_encoding_length` a `const fn`.
+///       Issue for this: https://github.com/fluffysquirrels/framed-rs/issues/19
+const fn cobs_max_encoded_len(payload_len: usize) -> usize {
+    payload_len
+        + (payload_len / 254)
+
+        // This `+ 1` was
+        // `+ if payload_len % 254 > 0 { 1 } else { 0 }` in cobs.rs,
+        // but that won't compile in a const fn. `1` is less than both the
+        // values in the if and else branches, so use that instead, with the
+        // acceptable cost of allocating 1 byte more than required some of the
+        // time.
+        //
+        // const fn compiler error was:
+        // ```
+        // error[E0019]: constant function contains unimplemented expression type
+        //    --> framed/src/lib.rs:388:11
+        //     |
+        // 388 |         + if payload_len % 254 > 0 { 1 } else { 0 }
+        //     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        //
+        // error: aborting due to previous error
+        // ```
+        //
+        // Relevant section of const fn design doc:
+        // https://github.com/rust-lang/rfcs/blob/5f69ff50de1fb6d0dd8c005b4f11f6e436e1f34c/text/0911-const-fn.md#detailed-design
+        // const fn tracking issue: https://github.com/rust-lang/rust/issues/24111
+
+        + 1
+}
 
 /// Sends encoded frames over an inner `io::Write` instance.
 #[cfg(feature = "use_std")]
@@ -446,11 +499,11 @@ mod tests {
 
     #[test]
     fn max_encoded_len_ok() {
-        assert_eq!(max_encoded_len(0)  .unwrap(), 1);
-        assert_eq!(max_encoded_len(1)  .unwrap(), 3);
-        assert_eq!(max_encoded_len(2)  .unwrap(), 4);
-        assert_eq!(max_encoded_len(254).unwrap(), 256);
-        assert_eq!(max_encoded_len(255).unwrap(), 258);
+        assert_eq!(max_encoded_len(0)  , 2);
+        assert_eq!(max_encoded_len(1)  , 3);
+        assert_eq!(max_encoded_len(2)  , 4);
+        assert_eq!(max_encoded_len(254), 257);
+        assert_eq!(max_encoded_len(255), 258);
     }
 
     #[test]

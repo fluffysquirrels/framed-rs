@@ -8,23 +8,83 @@
 //! length types (arrays, maps). Its lack of stability fits with the
 //! frame encoding in this crate: unsuitable for long-term storage or
 //! transmission between different versions of an application.
-//!
-//! This module currently requires `std`, the standard library.
 
+use ::{Encoded, TempBuffer};
 use error::{Result};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use ssmarshal;
+#[cfg(feature = "use_std")]
 use std::io::{Read, Write};
-use std::marker::PhantomData;
-use std::mem::size_of;
+use core::marker::PhantomData;
+use core::mem::size_of;
+
+/// Serializes and encodes the supplied value `v` into destination
+/// buffer `dest`, using `ser_buf` as a temporary serialization buffer.
+///
+/// # Examples
+///
+/// ```rust
+/// extern crate framed;
+/// use framed::typed::*;
+/// extern crate serde;
+/// #[macro_use]
+/// extern crate serde_derive;
+///
+/// #[derive(Serialize)]
+/// struct Test {
+///     a: u8,
+///     b: u16,
+/// }
+///
+/// fn main() {
+///     let mut ser_buf = [0u8; max_serialize_buf_len::<Test>()];
+///     let mut encoded = [0u8; max_encoded_len::<Test>()];
+///     encode_to_slice::<Test>(
+///         &Test { a: 1, b: 2 },
+///         &mut ser_buf,
+///         &mut encoded
+///     ).expect("encode ok");
+/// }
+/// ```
+///
+pub fn encode_to_slice<T: Serialize>(
+    v: &T,
+    ser_buf: &mut TempBuffer,
+    dest: &mut Encoded,
+) -> Result<usize> {
+    assert!(ser_buf.len() >= max_serialize_buf_len::<T>());
+    assert!(dest.len() >= max_encoded_len::<T>());
+
+    let ser_len = ssmarshal::serialize(ser_buf, v)?;
+    let ser = &ser_buf[0..ser_len];
+    super::encode_to_slice(ser, dest)
+}
+
+/// Returns an upper bound for the encoded length of a frame with a
+/// serialized `T` value as its payload.
+///
+/// Useful for calculating an appropriate buffer length.
+pub const fn max_encoded_len<T: Serialize>() -> usize {
+    super::max_encoded_len(max_serialize_buf_len::<T>())
+}
+
+/// Returns an upper bound for the temporary serialization buffer
+/// length needed by `encode_to_slice` when serializing a
+/// value of type `T`.
+pub const fn max_serialize_buf_len<T: Serialize>() -> usize {
+    size_of::<T>()
+}
+
 
 /// Sends encoded structs of type `T` over an inner `io::Write` instance.
+#[cfg(feature = "use_std")]
 pub struct Sender<W: Write, T: Serialize> {
     w: W,
     _t: PhantomData<T>,
 }
 
+#[cfg(feature = "use_std")]
 impl<W: Write, T: Serialize> Sender<W, T> {
     /// Construct a `Sender` that sends encoded structs over the supplied
     /// `io::Write`.
@@ -54,6 +114,8 @@ impl<W: Write, T: Serialize> Sender<W, T> {
     ///
     /// See also: [`send`](#method.send)
     pub fn queue(&mut self, v: &T) -> Result<usize> {
+        // TODO: Re-use encode_to_slice
+
         // This uses a dynamically allocated buffer.
         //
         // I couldn't get a no_std version to compile with a stack-allocated
@@ -84,7 +146,7 @@ impl<W: Write, T: Serialize> Sender<W, T> {
         #[cfg(feature = "trace")] {
             println!("framed: Serialized = {:?}", ser);
         }
-        super::encode_to_writer(&ser, &mut self.w)
+        ::encode_to_writer(&ser, &mut self.w)
     }
 
     /// Encode the supplied payload as a frame, write it to the
@@ -102,11 +164,13 @@ impl<W: Write, T: Serialize> Sender<W, T> {
 }
 
 /// Receives encoded structs of type `T` from an inner `io::Read` instance.
+#[cfg(feature = "use_std")]
 pub struct Receiver<R: Read, T: DeserializeOwned> {
     r: R,
     _t: PhantomData<T>,
 }
 
+#[cfg(feature = "use_std")]
 impl<R: Read, T: DeserializeOwned> Receiver<R, T> {
     /// Construct a `Receiver` that receives encoded structs from the supplied
     /// `io::Read`.
@@ -133,9 +197,6 @@ impl<R: Read, T: DeserializeOwned> Receiver<R, T> {
 
 #[cfg(test)]
 mod tests {
-    use channel::Channel;
-    use error::Error;
-    use std::io::{Read, Write};
     use super::*;
 
     #[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -156,26 +217,7 @@ mod tests {
         a: [u8; 3],
     }
 
-    #[test]
-    fn one() {
-        let (mut tx, mut rx) = pair();
-        let v = val();
-        tx.send(&v).unwrap();
-        let r = rx.recv().unwrap();
-        println!("r: {:#?}", r);
-        assert_eq!(v, r);
-    }
-
-    #[test]
-    fn empty_input() {
-        let (mut _tx, mut rx) = pair();
-        match rx.recv() {
-            Err(Error::EofBeforeFrame) => (),
-            e @ _ => panic!("Bad value: {:?}", e)
-        }
-    }
-
-    fn val() -> Test {
+    fn test_val() -> Test {
         let v = Test {
             i8: 1,
             i16: 2,
@@ -196,10 +238,93 @@ mod tests {
         v
     }
 
-    fn pair() -> (Sender<Box<Write>, Test>, Receiver<Box<Read>, Test>) {
-        let c = Channel::new();
-        let tx = Sender::new(Box::new(c.writer()) as Box<Write>);
-        let rx = Receiver::new(Box::new(c.reader()) as Box<Read>);
-        (tx, rx)
+    mod slice_tests {
+        use super::*;
+
+        #[test]
+        fn first() {
+            let mut ser_buf = [0u8; 100];
+            let mut enc_buf = [0u8; 100];
+            let len = super::encode_to_slice(
+                &test_val(), &mut ser_buf, &mut enc
+            ).unwrap();
+            let enc = &enc_buf[0..len];
+
+            super::decode_from_slice(&enc
+            // TODO: Deserialize the test value.
+        }
+
+        #[test]
+        #[should_panic]
+        fn bad_ser_buf_len() {
+            let mut ser_buf = [0u8; 1];
+            let mut enc     = [0u8; 100];
+            super::encode_to_slice(
+                &test_val(), &mut ser_buf, &mut enc
+            ).unwrap();
+        }
+
+        #[test]
+        #[should_panic]
+        fn bad_dest_len() {
+            let mut ser_buf = [0u8; 100];
+            let mut enc     = [0u8; 1];
+            super::encode_to_slice(
+                &test_val(), &mut ser_buf, &mut enc
+            ).unwrap();
+        }
+    }
+
+    mod len_tests {
+        use super::*;
+
+        #[test]
+        fn serialize_buf_len() {
+            assert_eq!(max_serialize_buf_len::<Test>(), 40);
+            assert_eq!(max_serialize_buf_len::<u8>(), 1);
+            assert_eq!(max_serialize_buf_len::<u16>(), 2);
+            assert_eq!(max_serialize_buf_len::<u32>(), 4);
+            assert_eq!(max_serialize_buf_len::<u64>(), 8);
+        }
+
+        #[test]
+        fn encoded_len() {
+            assert_eq!(max_encoded_len::<Test>(), 42);
+            assert_eq!(max_encoded_len::<u8>(), 3);
+        }
+    }
+
+    #[cfg(feature = "use_std")]
+    mod rw_tests {
+        use channel::Channel;
+        use error::Error;
+        use std::io::{Read, Write};
+        use super::*;
+
+        #[test]
+        fn one() {
+            let (mut tx, mut rx) = pair();
+            let v = test_val();
+            tx.send(&v).unwrap();
+            let r = rx.recv().unwrap();
+            println!("r: {:#?}", r);
+            assert_eq!(v, r);
+        }
+
+        #[test]
+        fn empty_input() {
+            let (mut _tx, mut rx) = pair();
+            match rx.recv() {
+                Err(Error::EofBeforeFrame) => (),
+                e @ _ => panic!("Bad value: {:?}", e)
+            }
+        }
+
+        fn pair() -> (Sender<Box<Write>, Test>, Receiver<Box<Read>, Test>) {
+            let c = Channel::new();
+            let tx = Sender::new(Box::new(c.writer()) as Box<Write>);
+            let rx = Receiver::new(Box::new(c.reader()) as Box<Read>);
+            (tx, rx)
+        }
     }
 }
