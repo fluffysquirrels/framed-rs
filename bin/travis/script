@@ -18,4 +18,4 @@ cargo doc  -p framed --verbose --no-deps;
 
 DECODE_TYPE_CRATE_DIR=test_type \
     DECODE_TYPE_NAME=framed_test_type::Test \
-    bin/decode_typed;
+    bin/decode_typed < /dev/null;
