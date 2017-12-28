@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-set -ex
+set -ex;
 
 # A simple build script to run locally before pushing.
 
 script_dir=$( cd $(dirname ${BASH_SOURCE[0]}); pwd )
 repo_dir=${script_dir}/..
+
+cd ${repo_dir};
 
 for tc in nightly stable beta; do
     echo "Toolchain: ${tc}";
@@ -12,9 +14,13 @@ for tc in nightly stable beta; do
 
     export CARGO_TARGET_DIR="${repo_dir}/target/build_local/${tc}"
 
-    cargo +${tc} test --verbose;
-    cargo +${tc} test --verbose --no-default-features;
-    cargo +${tc} test --verbose --no-default-features --features=typed;
-    cargo +${tc} test --verbose --features=trace;
-    cargo +${tc} doc --verbose --no-deps;
+    cargo +${tc} test -p framed --verbose;
+    cargo +${tc} test -p framed --verbose --no-default-features;
+    cargo +${tc} test -p framed --verbose --no-default-features --features=typed;
+    cargo +${tc} test -p framed --verbose --features=trace;
+    cargo +${tc} doc  -p framed --verbose --no-deps;
 done
+
+DECODE_TYPE_CRATE_DIR=test_type \
+    DECODE_TYPE_NAME=framed_test_type::Test \
+    bin/decode_typed;

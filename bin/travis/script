@@ -1,13 +1,21 @@
 #!/usr/bin/env bash
-set -e
+set -e;
 
-# TODO: Fix me.
+script_dir=$( cd $(dirname ${BASH_SOURCE[0]}); pwd )
+repo_dir=${script_dir}/../..
 
 echo "TRAVIS_RUST_VERSION: '${TRAVIS_RUST_VERSION}'"
-set -x
 
-cargo test --verbose;
-cargo test --verbose --no-default-features;
-cargo test --verbose --no-default-features --features=typed;
-cargo test --verbose --features=trace;
-cargo doc --verbose --no-deps;
+set -x;
+
+cd ${repo_dir};
+
+cargo test -p framed --verbose;
+cargo test -p framed --verbose --no-default-features;
+cargo test -p framed --verbose --no-default-features --features=typed;
+cargo test -p framed --verbose --features=trace;
+cargo doc  -p framed --verbose --no-deps;
+
+DECODE_TYPE_CRATE_DIR=test_type \
+    DECODE_TYPE_NAME=framed_test_type::Test \
+    bin/decode_typed;
