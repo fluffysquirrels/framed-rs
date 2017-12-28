@@ -173,6 +173,11 @@ impl Deref for BoxEncoded {
     }
 }
 
+/// The frame ends with (and includes) this byte.
+///
+/// Consumers can read encoded data into a buffer until they encounter
+/// this value and then use one of the `decode_*` functions to decode
+/// the frame's payload.
 pub const FRAME_END_SYMBOL: u8 = 0;
 
 const HEADER_LEN: usize = 0;
