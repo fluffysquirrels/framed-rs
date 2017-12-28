@@ -8,6 +8,8 @@
 //! length types (arrays, maps). Its lack of stability fits with the
 //! frame encoding in this crate: unsuitable for long-term storage or
 //! transmission between different versions of an application.
+//!
+//! TODO: Usage examples.
 
 use ::{Encoded, TempBuffer};
 use error::{Result};
@@ -22,7 +24,16 @@ use core::mem::size_of;
 /// Serializes and encodes the supplied value `v` into destination
 /// buffer `dest`, using `ser_buf` as a temporary serialization buffer.
 ///
-/// # Examples
+/// Returns the number of bytes written to the beginning of `dest`.
+///
+/// # Panics
+///
+/// This will panic if the supplied buffers are too small to serialize
+/// a value of `T`. Callers must ensure that
+/// `ser_buf.len() >= max_serialize_buf_len::<T>())` and
+/// `dest.len() >= max_encoded_len::<T>()`. See the example.
+///
+/// # Example
 ///
 /// ```rust
 /// extern crate framed;
@@ -31,7 +42,7 @@ use core::mem::size_of;
 /// #[macro_use]
 /// extern crate serde_derive;
 ///
-/// #[derive(Serialize)]
+/// #[derive(Deserialize, Serialize)]
 /// struct Test {
 ///     a: u8,
 ///     b: u16,
@@ -39,16 +50,19 @@ use core::mem::size_of;
 ///
 /// fn main() {
 ///     let mut ser_buf = [0u8; max_serialize_buf_len::<Test>()];
-///     let mut encoded = [0u8; max_encoded_len::<Test>()];
-///     encode_to_slice::<Test>(
+///     let mut encoded_buf = [0u8; max_encoded_len::<Test>()];
+///     let encoded_len = encode_to_slice::<Test>(
 ///         &Test { a: 1, b: 2 },
 ///         &mut ser_buf,
-///         &mut encoded
+///         &mut encoded_buf
 ///     ).expect("encode ok");
+///
+///     let encoded = &encoded_buf[0..encoded_len];
+///     // `encoded` now contains the complete encoded frame.
 /// }
 /// ```
 ///
-pub fn encode_to_slice<T: Serialize>(
+pub fn encode_to_slice<T: DeserializeOwned + Serialize>(
     v: &T,
     ser_buf: &mut TempBuffer,
     dest: &mut Encoded,
@@ -58,21 +72,34 @@ pub fn encode_to_slice<T: Serialize>(
 
     let ser_len = ssmarshal::serialize(ser_buf, v)?;
     let ser = &ser_buf[0..ser_len];
-    super::encode_to_slice(ser, dest)
+    ::encode_to_slice(ser, dest)
+}
+
+/// TODO.
+pub fn decode_from_slice<T: DeserializeOwned + Serialize>(
+    e: &Encoded,
+    de_buf: &mut TempBuffer
+) -> Result<T> {
+    assert!(de_buf.len() >= max_serialize_buf_len::<T>());
+
+    let de_len = ::decode_to_slice(e, de_buf)?;
+    let payload = &de_buf[0..de_len];
+    let (v, _len) = ssmarshal::deserialize(payload)?;
+    Ok(v)
 }
 
 /// Returns an upper bound for the encoded length of a frame with a
 /// serialized `T` value as its payload.
 ///
 /// Useful for calculating an appropriate buffer length.
-pub const fn max_encoded_len<T: Serialize>() -> usize {
+pub const fn max_encoded_len<T: DeserializeOwned + Serialize>() -> usize {
     super::max_encoded_len(max_serialize_buf_len::<T>())
 }
 
 /// Returns an upper bound for the temporary serialization buffer
-/// length needed by `encode_to_slice` when serializing a
-/// value of type `T`.
-pub const fn max_serialize_buf_len<T: Serialize>() -> usize {
+/// length needed by `encode_to_slice` and `decode_from_slice` when
+/// serializing or deserializing a value of type `T`.
+pub const fn max_serialize_buf_len<T: DeserializeOwned + Serialize>() -> usize {
     size_of::<T>()
 }
 
@@ -114,8 +141,6 @@ impl<W: Write, T: Serialize> Sender<W, T> {
     ///
     /// See also: [`send`](#method.send)
     pub fn queue(&mut self, v: &T) -> Result<usize> {
-        // TODO: Re-use encode_to_slice
-
         // This uses a dynamically allocated buffer.
         //
         // I couldn't get a no_std version to compile with a stack-allocated
@@ -130,22 +155,10 @@ impl<W: Write, T: Serialize> Sender<W, T> {
         // I think this may require const generics
         // (rust-lang tracking issue:
         // https://github.com/rust-lang/rust/issues/44580).
-        //
-        // When I need to write a no_std version I see a few easy options:
-        // 1. Caller supplies a reference to a buffer, we can assert! that
-        //    it's long enough. Annoying to use.
-        // 2. Choose a reasonable length buffer and assert it's long enough.
-        //    Won't work for large enough structs, may consume an inappropriate
-        //    amount of memory for embedded use.
-        // 3. Provide overloads for 1 and 2. For most cases the fixed size
-        //    buffer will be fine, and if not you can provide your own.
         let mut ser_buf = vec![0u8; size_of::<T>()];
 
         let ser_len = ssmarshal::serialize(&mut ser_buf, v)?;
         let ser = &ser_buf[0..ser_len];
-        #[cfg(feature = "trace")] {
-            println!("framed: Serialized = {:?}", ser);
-        }
         ::encode_to_writer(&ser, &mut self.w)
     }
 
@@ -242,16 +255,17 @@ mod tests {
         use super::*;
 
         #[test]
-        fn first() {
+        fn roundtrip() {
+            let input = test_val();
             let mut ser_buf = [0u8; 100];
             let mut enc_buf = [0u8; 100];
             let len = super::encode_to_slice(
-                &test_val(), &mut ser_buf, &mut enc
+                &input, &mut ser_buf, &mut enc_buf
             ).unwrap();
             let enc = &enc_buf[0..len];
 
-            super::decode_from_slice(&enc
-            // TODO: Deserialize the test value.
+            let output = super::decode_from_slice(&enc, &mut ser_buf).unwrap();
+            assert_eq!(input, output);
         }
 
         #[test]
