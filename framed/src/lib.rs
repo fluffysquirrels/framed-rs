@@ -34,16 +34,17 @@
 //!
 //! `use_std`: Use standard library. Enabled by default, disable for no_std.
 //!
-//! `trace`: Enable to print all data to stdout for testing.
-//!
 //! `typed`: Enables the [`typed`](typed/index.html) sub-module for sending and
 //!          receiving structs serialized with serde. Enabled by default.
 //!
-//! ## API
+//! `trace`: Enable to print all data to stdout for testing.
 //!
-//! Payload data and encoded frame data have separate types to avoid
-//! mixing them up. You are encouraged to use these types in your own
-//! code when integrating with this crate. Definitions:
+//! ## Byte slice wrapper types
+//!
+//! Payload data and encoded frame data are both slices of bytes but
+//! have separate types to help avoid mixing them up. You are
+//! encouraged to use these types in your own code when integrating
+//! with this crate. Definitions:
 //!
 //! ```rust,ignore
 //! /// Arbitrary user data.
@@ -66,12 +67,6 @@
 //! pub struct BoxEncoded(_);
 //! ```
 //!
-//! Consumers have a choice of interfaces to enable usability,
-//! efficiency, and use from `no_std` crates.
-//!
-//! See the `decode_*` and `encode_*` functions for simple uses with
-//! various input and output types.
-//!
 //! Note that data typed as `Payload` or `Encoded` may be
 //! efficiently passed as a function argument by reference, but is
 //! returned using an opaque struct (`BoxPayload`, `BoxEncoded`)
@@ -79,17 +74,67 @@
 //! and `decode_*` variants that require this are only available with
 //! the `use_std` Cargo feature.
 //!
-//! For sending or receiving a stream of frames, consider the `Reader`
-//! and `Writer` structs that wrap an `io::Read` or `io::Write`
-//! instance.
-//!
 //! ## Example usage from a std crate
 //!
-//! TODO.
+//! See the `decode_*` and `encode_*` functions for simple uses with
+//! various input and output types.
+//!
+//! The `Sender` struct writes encoded payloads to an
+//! inner `std::io::Write` instance, and the `Receiver` struct reads
+//! and decodes payloads from an inner `std::io::Read` instance.
+//!
+//! ```rust
+//! # use framed::*;
+//! # use std::io::Cursor;
+//! #
+//! let payload = [1, 2, 3];
+//!
+//! let mut encoded = vec![];
+//! {
+//!     let mut sender = Sender::new(&mut encoded);
+//!     sender.send(&payload).expect("send ok");
+//! }
+//!
+//! // `encoded` now contains the encoded frame.
+//!
+//! let mut receiver = Receiver::new(Cursor::new(encoded));
+//! let decoded = receiver.recv().expect("recv ok");
+//!
+//! assert_eq!(payload, *decoded);
+//! ```
 //!
 //! ## Example usage from a no_std crate
 //!
-//! TODO.
+//! The `encode_to_slice` and `decode_from_slice` functions offer an
+//! API for `no_std` crates that might not have a heap allocator
+//! available and cannot use `std::io::Read` or `std::io::Write`.
+//!
+//! ```rust
+//! # use framed::*;
+//! #
+//! // In a no_std crate without dynamic memory allocation we would typically
+//! // know the maximum payload length, which we can use for payload buffers.
+//! const MAX_PAYLOAD_LEN: usize = 10;
+//!
+//! // The maximum payload length implies a maximum encoded frame length,
+//! // which we can use for frame buffers.
+//! const MAX_FRAME_LEN: usize = max_encoded_len(MAX_PAYLOAD_LEN);
+//!
+//! let payload: [u8; 3] = [1, 2, 3];
+//! assert!(payload.len() <= MAX_PAYLOAD_LEN);
+//!
+//! let mut encoded_buf = [0u8; MAX_FRAME_LEN];
+//! let encoded_len = encode_to_slice(&payload, &mut encoded_buf).expect("encode ok");
+//! let encoded = &encoded_buf[0..encoded_len];
+//!
+//! // `encoded` now contains the encoded frame.
+//!
+//! let mut decoded_buf = [0u8; MAX_PAYLOAD_LEN];
+//! let decoded_len = decode_to_slice(&encoded, &mut decoded_buf).expect("decode ok");
+//! let decoded = &decoded_buf[0..decoded_len];
+//!
+//! assert_eq!(payload, *decoded);
+//! ```
 //!
 
 #![deny(warnings)]
@@ -243,7 +288,7 @@ pub fn encode_to_box(p: &Payload) -> Result<BoxEncoded> {
 /// Encode the supplied payload data as a frame and write it to the
 /// supplied `Write`.
 ///
-/// This function will not call `flush` on the writer; the caller do
+/// This function will not call `flush` on the writer; the caller must do
 /// so if this is required.
 ///
 /// Returns the length of the frame it has written.
@@ -278,8 +323,8 @@ pub fn encode_to_writer<W: Write>(p: &Payload, w: &mut W) -> Result<usize> {
 /// # Panics
 ///
 /// This function will panic if `dest` is not large enough for the decoded frame.
-/// Ensure `dest.len() >= max_decoded_len(e.len())?`.
-pub fn decode_to_slice(e: &Encoded, mut dest: &mut [u8])
+/// Ensure `dest.len() >= e.len()`.
+pub fn decode_to_slice(e: &Encoded, dest: &mut [u8])
 -> Result<usize> {
     #[cfg(feature = "trace")] {
         println!("framed: Encoded input = {:?}", e);
@@ -293,19 +338,19 @@ pub fn decode_to_slice(e: &Encoded, mut dest: &mut [u8])
         return Err(Error::EofDuringFrame)
     }
 
-    assert!(dest.len() >= max_decoded_len(e.len())?);
+    assert!(dest.len() >= max_decoded_len(e.len()));
     assert_eq!(e[e.len() - 1], FRAME_END_SYMBOL);
 
     // Just the body (COBS-encoded payload).
     let body = &e[0..(e.len()-1)];
 
-    let len = cobs::decode(body, &mut dest)
+    let len = cobs::decode(body, dest)
                    .map_err(|_| Error::CobsDecodeFailed)?;
 
     #[cfg(feature = "trace")] {
         println!("framed: body = {:?}\n\
                   framed: decoded = {:?}",
-                 body, &dest[0..len]);
+                 body, dest[0..len]);
     }
 
     Ok(len)
@@ -317,7 +362,7 @@ pub fn decode_to_box(e: &Encoded) -> Result<BoxPayload> {
     if e.len() == 0 {
         return Err(Error::EofBeforeFrame);
     }
-    let mut buf = vec![0; max_decoded_len(e.len())?];
+    let mut buf = vec![0; max_decoded_len(e.len())];
     let len = decode_to_slice(e, &mut buf)?;
     buf.truncate(len);
     Ok(BoxPayload::from(buf))
@@ -365,16 +410,11 @@ pub fn decode_from_reader<R: Read>(r: &mut Read) -> Result<BoxPayload> {
 /// within a frame with the encoded length supplied.
 ///
 /// Useful for calculating an appropriate buffer length.
-pub fn max_decoded_len(code_len: usize) -> Result<usize> {
-    let framing_len = HEADER_LEN + FOOTER_LEN;
-    if code_len < framing_len {
-        return Err(Error::EncodedFrameTooShort)
-    }
-    let cobs_len = code_len - framing_len;
-    // If every byte is a 0x00, then COBS-encoded data will be the
-    // same length of 0x01.
-    let cobs_decode_limit = cobs_len;
-    Ok(cobs_decode_limit)
+pub const fn max_decoded_len(code_len: usize) -> usize {
+    // This is an over-estimate of the required decoded buffer, but
+    // wasting HEADER_LEN + FOOTER_LEN bytes should be acceptable and
+    // we can calculate this trivially in a const fn.
+    code_len
 }
 
 /// Returns an upper bound for the encoded length of a frame with
@@ -422,7 +462,7 @@ const fn cobs_max_encoded_len(payload_len: usize) -> usize {
         + 1
 }
 
-/// Sends encoded frames over an inner `io::Write` instance.
+/// Sends encoded frames over an inner `std::io::Write` instance.
 #[cfg(feature = "use_std")]
 pub struct Sender<W: Write> {
     w: W,
@@ -430,15 +470,14 @@ pub struct Sender<W: Write> {
 
 #[cfg(feature = "use_std")]
 impl<W: Write> Sender<W> {
-    /// Construct a `Sender` that sends frames over the supplied
-    /// `io::Write`.
+    /// Construct a `Sender` that writes encoded frames to `w`.
     pub fn new(w: W) -> Sender<W> {
         Sender::<W> {
             w: w,
         }
     }
 
-    /// Consume this `Sender` and return the inner `io::Write`.
+    /// Consume this `Sender` and return the inner `std::io::Write`.
     pub fn into_inner(self) -> W {
         self.w
     }
@@ -474,7 +513,7 @@ impl<W: Write> Sender<W> {
     }
 }
 
-/// Receives encoded frames from an inner `io::Read` instance.
+/// Receives encoded frames from an inner `std::io::Read` instance.
 #[cfg(feature = "use_std")]
 pub struct Receiver<R: Read> {
     r: R,
@@ -483,7 +522,7 @@ pub struct Receiver<R: Read> {
 #[cfg(feature = "use_std")]
 impl<R: Read> Receiver<R> {
     /// Construct a `Receiver` that receives frames from the supplied
-    /// `io::Read`.
+    /// `std::io::Read`.
     pub fn new(r: R) -> Receiver<R> {
         Receiver::<R> {
             r: r,
@@ -516,19 +555,12 @@ mod tests {
     }
 
     #[test]
-    fn max_decoded_len_too_short() {
-        match max_decoded_len(0) {
-            Err(Error::EncodedFrameTooShort) => (),
-            e @ _ => panic!("Bad output: {:?}", e)
-        }
-    }
-
-    #[test]
     fn max_decoded_len_ok() {
-        assert_eq!(max_decoded_len(1)  .unwrap(), 0);
-        assert_eq!(max_decoded_len(2)  .unwrap(), 1);
-        assert_eq!(max_decoded_len(3)  .unwrap(), 2);
-        assert_eq!(max_decoded_len(255).unwrap(), 254);
+        assert_eq!(max_decoded_len(0)  , 0);
+        assert_eq!(max_decoded_len(1)  , 1);
+        assert_eq!(max_decoded_len(2)  , 2);
+        assert_eq!(max_decoded_len(3)  , 3);
+        assert_eq!(max_decoded_len(255), 255);
     }
 }
 

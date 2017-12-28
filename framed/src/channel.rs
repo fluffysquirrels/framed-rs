@@ -1,4 +1,6 @@
 //! Vec-backed FIFO buffer of bytes for testing.
+//!
+//! TODO: Remove this, I have an easy workaround.
 
 use std::cell::RefCell;
 use std::io::{Read, Result, Write};

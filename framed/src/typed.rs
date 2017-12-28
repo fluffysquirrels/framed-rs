@@ -1,13 +1,15 @@
-//! Sending and receiving structs serialized with serde and
-//! [`ssmarshal`][ssmarshal].
+//! Sending and receiving serde-serialized structs.
+//!
+//! Currently structs are serialized with [`ssmarshal`][ssmarshal],
+//! but this is an implementation detail that may change without
+//! warning. `ssmarshal` uses a straightforward, compact serialization
+//! format that doesn't support compatibility between versions or
+//! dynamic length types (arrays, maps). Its lack of versioning fits
+//! with the design goals for the frame encoding in this crate:
+//! unsuitable for long-term storage or transmission between different
+//! versions of an application, but space-efficient.
 //!
 //! [ssmarshal]: https://crates.io/crates/ssmarshal
-//!
-//! `ssmarshal` uses a straightforward, compact serialization format
-//! that doesn't support compatibility between versions or dynamic
-//! length types (arrays, maps). Its lack of stability fits with the
-//! frame encoding in this crate: unsuitable for long-term storage or
-//! transmission between different versions of an application.
 //!
 //! ## Example usage from a `std` crate
 //!
@@ -31,28 +33,28 @@
 //!         b: u16,
 //!     }
 //!
-//!     let input = Test { a: 1, b: 2 };
+//!     let payload = Test { a: 1, b: 2 };
 //!
-//!     let mut data = vec![];
+//!     let mut encoded = vec![];
 //!     {
-//!         let mut sender = Sender::<_, Test>::new(&mut data);
-//!         sender.send(&input).expect("send ok");
+//!         let mut sender = Sender::<_, Test>::new(&mut encoded);
+//!         sender.send(&payload).expect("send ok");
 //!     }
 //!
-//!     // `data` now contains the encoded value.
+//!     // `encoded` now contains the encoded value.
 //!
-//!     let mut receiver = Receiver::<_, Test>::new(Cursor::new(data));
-//!     let output = receiver.recv().expect("recv ok");
+//!     let mut receiver = Receiver::<_, Test>::new(Cursor::new(encoded));
+//!     let decoded = receiver.recv().expect("recv ok");
 //!
-//!     assert_eq!(input, output);
+//!     assert_eq!(payload, decoded);
 //! # }
 //! ```
 //!
 //! ## Example usage from a `no_std` crate
 //!
 //! The `encode_to_slice` and `decode_from_slice` functions offer an
-//! API for `no_std` crates that might not have a heap allocator
-//! available and cannot use `std::io::Read` or `std::io::Write`.
+//! API for `no_std` crates that do not have a heap allocator and
+//! cannot use `std::io::Read` or `std::io::Write`.
 //!
 //! ```rust
 //! # extern crate framed;
@@ -68,12 +70,12 @@
 //! #       b: u16,
 //! #   }
 //! #
-//! #   let input = Test { a: 1, b: 2 };
+//! #   let payload = Test { a: 1, b: 2 };
 //! #
 //!     let mut ser_buf = [0u8; max_serialize_buf_len::<Test>()];
 //!     let mut encoded_buf = [0u8; max_encoded_len::<Test>()];
 //!     let encoded_len = encode_to_slice::<Test>(
-//!         &input,
+//!         &payload,
 //!         &mut ser_buf,
 //!         &mut encoded_buf
 //!     ).expect("encode ok");
@@ -82,10 +84,10 @@
 //!     // `encoded` now contains the complete encoded frame.
 //!
 //!     let mut de_buf = [0u8; max_serialize_buf_len::<Test>()];
-//!     let output = decode_from_slice(encoded, &mut de_buf)
-//!                      .expect("decode ok");
+//!     let decoded = decode_from_slice(encoded, &mut de_buf)
+//!                       .expect("decode ok");
 //!
-//!     assert_eq!(input, output);
+//!     assert_eq!(payload, decoded);
 //! # }
 //! ```
 
@@ -170,7 +172,7 @@ pub const fn max_encoded_len<T: DeserializeOwned + Serialize>() -> usize {
 /// length needed by `encode_to_slice` and `decode_from_slice` when
 /// serializing or deserializing a value of type `T`.
 pub const fn max_serialize_buf_len<T: DeserializeOwned + Serialize>() -> usize {
-    size_of::<T>()
+    super::max_encoded_len(size_of::<T>())
 }
 
 
@@ -374,17 +376,17 @@ mod tests {
 
         #[test]
         fn serialize_buf_len() {
-            assert_eq!(max_serialize_buf_len::<Test>(), 40);
-            assert_eq!(max_serialize_buf_len::<u8>(), 1);
-            assert_eq!(max_serialize_buf_len::<u16>(), 2);
-            assert_eq!(max_serialize_buf_len::<u32>(), 4);
-            assert_eq!(max_serialize_buf_len::<u64>(), 8);
+            assert_eq!(max_serialize_buf_len::<Test>(), 42);
+            assert_eq!(max_serialize_buf_len::<u8>(), 3);
+            assert_eq!(max_serialize_buf_len::<u16>(), 4);
+            assert_eq!(max_serialize_buf_len::<u32>(), 6);
+            assert_eq!(max_serialize_buf_len::<u64>(), 10);
         }
 
         #[test]
         fn encoded_len() {
-            assert_eq!(max_encoded_len::<Test>(), 42);
-            assert_eq!(max_encoded_len::<u8>(), 3);
+            assert_eq!(max_encoded_len::<Test>(), 44);
+            assert_eq!(max_encoded_len::<u8>(), 5);
         }
     }
 

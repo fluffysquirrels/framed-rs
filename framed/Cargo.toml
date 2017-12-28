@@ -1,6 +1,6 @@
 [package]
 name = "framed"
-# Next version is 0.2.0. I changed the type of max_encoded_len
+# Next version is 0.2.0. I changed the type of max_encoded_len, max_decoded_len.
 # was: pub       fn max_encoded_len(usize) -> Result<usize>
 # now: pub const fn max_encoded_len(usize) -> usize
 version = "0.1.4"
