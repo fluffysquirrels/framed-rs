@@ -34,8 +34,8 @@
 //!
 //! `use_std`: Use standard library. Enabled by default, disable for no_std.
 //!
-//! `typed`: Enables the [`typed`](typed/index.html) sub-module for sending and
-//!          receiving structs serialized with serde. Enabled by default.
+//! `use_nightly`:  Enables unstable features that only work on nightly rust.
+//!                 Required for practical no_std use.
 //!
 //! `trace`: Enable to print all data to stdout for testing.
 //!
@@ -118,6 +118,10 @@
 //!
 //! // The maximum payload length implies a maximum encoded frame length,
 //! // which we can use for frame buffers.
+//! //
+//! // Using a calculated frame buffer length like this requires
+//! // const fn, which is currently unstable and only available on nightly rust.
+//! // Enable cargo feature flag "use_nightly" to use it.
 //! const MAX_FRAME_LEN: usize = max_encoded_len(MAX_PAYLOAD_LEN);
 //!
 //! let payload: [u8; 3] = [1, 2, 3];
@@ -140,8 +144,95 @@
 #![deny(warnings)]
 #![cfg_attr(not(feature = "use_std"), no_std)]
 
-// TODO: Disable this when toolchain != nightly.
-#![feature(const_fn)]
+#![cfg_attr(feature = "use_nightly", feature(const_fn))]
+
+/// Macro const_fn! declares a function
+/// with `pub fn`       when feature "use_nightly" is disabled, and
+/// with `pub const fn` when feature "use_nightly" is enabled.
+///
+/// Usage:
+/// ```ignore
+/// const_fn! {
+///     fn foo() {
+///         println!("Hello, world!");
+///     }
+/// }
+/// ```
+#[cfg(feature = "use_nightly")]
+macro_rules! const_fn {
+    ($(#[$attr: meta])*
+     pub fn $name:ident
+     <$($gen_ty_name:ident : $gen_ty_ty:path),+>
+     ($($arg_name:ident : $arg_ty: ty),*)
+     -> $ret_ty:ty
+     $body: block) =>
+    ($(#[$attr])*
+     pub const fn $name
+     <$($gen_ty_name : $gen_ty_ty),*>
+     ($($arg_name : $arg_ty),*)
+     -> $ret_ty
+     $body);
+
+    ($(#[$attr: meta])*
+     pub fn $name:ident
+     ($($arg_name:ident : $arg_ty: ty),*)
+     -> $ret_ty:ty
+     $body: block) =>
+    ($(#[$attr])*
+     pub const fn $name
+     ($($arg_name : $arg_ty),*)
+     -> $ret_ty
+     $body);
+
+    ($(#[$attr: meta])*
+     fn $name:ident
+     ($($arg_name:ident : $arg_ty: ty),*)
+     -> $ret_ty:ty
+     $body: block) =>
+    ($(#[$attr])*
+     const fn $name
+     ($($arg_name : $arg_ty),*)
+     -> $ret_ty
+     $body);
+}
+
+#[cfg(not(feature = "use_nightly"))]
+macro_rules! const_fn {
+    ($(#[$attr: meta])*
+     pub fn $name:ident
+     <$($gen_ty_name:ident : $gen_ty_ty:path),+>
+     ($($arg_name:ident : $arg_ty: ty),*)
+     -> $ret_ty:ty
+     $body: block) =>
+    ($(#[$attr])*
+     pub  fn $name
+     <$($gen_ty_name : $gen_ty_ty),*>
+     ($($arg_name : $arg_ty),*)
+     -> $ret_ty
+     $body);
+
+    ($(#[$attr: meta])*
+     pub fn $name:ident
+     ($($arg_name:ident : $arg_ty: ty),*)
+     -> $ret_ty:ty
+     $body: block) =>
+    ($(#[$attr])*
+     pub  fn $name
+     ($($arg_name : $arg_ty),*)
+     -> $ret_ty
+     $body);
+
+    ($(#[$attr: meta])*
+     fn $name:ident
+     ($($arg_name:ident : $arg_ty: ty),*)
+     -> $ret_ty:ty
+     $body: block) =>
+    ($(#[$attr])*
+      fn $name
+     ($($arg_name : $arg_ty),*)
+     -> $ret_ty
+     $body);
+}
 
 // ## extern crate statements
 extern crate cobs;
@@ -151,14 +242,12 @@ extern crate core;
 
 extern crate ref_slice;
 
-#[cfg(feature = "typed")]
 extern crate serde;
 
 #[macro_use]
-#[cfg(all(test, feature = "typed", feature = "use_std"))]
+#[cfg(all(test, feature = "use_std"))]
 extern crate serde_derive;
 
-#[cfg(feature = "typed")]
 extern crate ssmarshal;
 
 
@@ -169,7 +258,6 @@ pub mod channel;
 pub mod error;
 pub use error::{Error, Result};
 
-#[cfg(all(feature = "typed", feature = "use_std"))]
 pub mod typed;
 
 // ## use statements
@@ -406,60 +494,50 @@ pub fn decode_from_reader<R: Read>(r: &mut Read) -> Result<BoxPayload> {
     decode_to_box(&*next_frame)
 }
 
-/// Returns an upper bound for the decoded length of the payload
-/// within a frame with the encoded length supplied.
-///
-/// Useful for calculating an appropriate buffer length.
-pub const fn max_decoded_len(code_len: usize) -> usize {
-    // This is an over-estimate of the required decoded buffer, but
-    // wasting HEADER_LEN + FOOTER_LEN bytes should be acceptable and
-    // we can calculate this trivially in a const fn.
-    code_len
+const_fn! {
+    /// Returns an upper bound for the decoded length of the payload
+    /// within a frame with the encoded length supplied.
+    ///
+    /// Useful for calculating an appropriate buffer length.
+    pub fn max_decoded_len(code_len: usize) -> usize {
+        // This is an over-estimate of the required decoded buffer, but
+        // wasting HEADER_LEN + FOOTER_LEN bytes should be acceptable and
+        // we can calculate this trivially in a const fn.
+        code_len
+    }
 }
 
-/// Returns an upper bound for the encoded length of a frame with
-/// the payload length supplied.
-///
-/// Useful for calculating an appropriate buffer length.
-pub const fn max_encoded_len(payload_len: usize) -> usize {
-    HEADER_LEN
-        + cobs_max_encoded_len(payload_len)
-        + FOOTER_LEN
+const_fn! {
+    /// Returns an upper bound for the encoded length of a frame with
+    /// the payload length supplied.
+    ///
+    /// Useful for calculating an appropriate buffer length.
+    pub fn max_encoded_len(payload_len: usize) -> usize {
+        HEADER_LEN
+            + cobs_max_encoded_len(payload_len)
+            + FOOTER_LEN
+    }
 }
 
-/// Copied from `cobs` crate to make a `const` version.
-///
-/// Source: https://github.com/awelkie/cobs.rs/blob/f8ff1ad2aa7cd069a924d75170d3def3fa6df10b/src/lib.rs#L183-L188
-///
-/// TODO: Submit a PR to `cobs` to make `cobs::max_encoding_length` a `const fn`.
-///       Issue for this: https://github.com/fluffysquirrels/framed-rs/issues/19
-const fn cobs_max_encoded_len(payload_len: usize) -> usize {
-    payload_len
-        + (payload_len / 254)
+const_fn! {
+    /// Copied from `cobs` crate and modified to make a `const` version.
+    ///
+    /// Source: https://github.com/awelkie/cobs.rs/blob/f8ff1ad2aa7cd069a924d75170d3def3fa6df10b/src/lib.rs#L183-L188
+    ///
+    /// TODO: Submit a PR to `cobs` to make `cobs::max_encoding_length` a `const fn`.
+    ///       Issue for this: https://github.com/fluffysquirrels/framed-rs/issues/19
+    fn cobs_max_encoded_len(payload_len: usize) -> usize {
+        payload_len
+            + (payload_len / 254)
 
-        // This `+ 1` was
-        // `+ if payload_len % 254 > 0 { 1 } else { 0 }` in cobs.rs,
-        // but that won't compile in a const fn. `1` is less than both the
-        // values in the if and else branches, so use that instead, with the
-        // acceptable cost of allocating 1 byte more than required some of the
-        // time.
-        //
-        // const fn compiler error was:
-        // ```
-        // error[E0019]: constant function contains unimplemented expression type
-        //    --> framed/src/lib.rs:388:11
-        //     |
-        // 388 |         + if payload_len % 254 > 0 { 1 } else { 0 }
-        //     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        //
-        // error: aborting due to previous error
-        // ```
-        //
-        // Relevant section of const fn design doc:
-        // https://github.com/rust-lang/rfcs/blob/5f69ff50de1fb6d0dd8c005b4f11f6e436e1f34c/text/0911-const-fn.md#detailed-design
-        // const fn tracking issue: https://github.com/rust-lang/rust/issues/24111
-
-        + 1
+            // This `+ 1` was
+            // `+ if payload_len % 254 > 0 { 1 } else { 0 }` in cobs.rs,
+            // but that won't compile in a const fn. `1` is less than both the
+            // values in the if and else branches, so use that instead, with the
+            // acceptable cost of allocating 1 byte more than required some of the
+            // time.
+            + 1
+    }
 }
 
 /// Sends encoded frames over an inner `std::io::Write` instance.

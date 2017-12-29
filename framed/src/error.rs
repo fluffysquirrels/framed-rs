@@ -1,6 +1,5 @@
 //! Representations of errors returned by this crate.
 
-#[cfg(feature = "typed")]
 use ssmarshal;
 
 #[cfg(feature = "use_std")]
@@ -35,7 +34,6 @@ pub enum Error {
     Io(io::Error),
 
     /// Forwarded ssmarshal::Error.
-    #[cfg(feature = "typed")]
     Ssmarshal(ssmarshal::Error),
 }
 
@@ -46,7 +44,6 @@ impl From<io::Error> for Error {
     }
 }
 
-#[cfg(feature = "typed")]
 impl From<ssmarshal::Error> for Error {
     fn from(e: ssmarshal::Error) -> Error {
         Error::Ssmarshal(e)

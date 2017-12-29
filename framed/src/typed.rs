@@ -93,6 +93,7 @@
 
 use ::{Encoded, TempBuffer};
 use ::error::{Result};
+#[cfg(feature = "use_std")]
 use core::marker::PhantomData;
 use core::mem::size_of;
 use serde::Serialize;
@@ -160,23 +161,27 @@ pub fn decode_from_slice<T: DeserializeOwned + Serialize>(
     Ok(v)
 }
 
-/// Returns an upper bound for the encoded length of a frame with a
-/// serialized `T` value as its payload.
-///
-/// Useful for calculating an appropriate buffer length.
-pub const fn max_encoded_len<T: DeserializeOwned + Serialize>() -> usize {
-    super::max_encoded_len(max_serialize_buf_len::<T>())
+const_fn! {
+    /// Returns an upper bound for the encoded length of a frame with a
+    /// serialized `T` value as its payload.
+    ///
+    /// Useful for calculating an appropriate buffer length.
+    pub fn max_encoded_len<T: Serialize>() -> usize {
+        super::max_encoded_len(max_serialize_buf_len::<T>())
+    }
 }
 
-/// Returns an upper bound for the temporary serialization buffer
-/// length needed by `encode_to_slice` and `decode_from_slice` when
-/// serializing or deserializing a value of type `T`.
-pub const fn max_serialize_buf_len<T: DeserializeOwned + Serialize>() -> usize {
-    super::max_encoded_len(size_of::<T>())
+const_fn! {
+    /// Returns an upper bound for the temporary serialization buffer
+    /// length needed by `encode_to_slice` and `decode_from_slice` when
+    /// serializing or deserializing a value of type `T`.
+    pub fn max_serialize_buf_len<T: Serialize>() -> usize {
+        super::max_encoded_len(size_of::<T>())
+    }
 }
 
 
-/// Sends encoded structs of type `T` over an inner `io::Write` instance.
+/// Sends encoded structs of type `T` over an inner `std::io::Write` instance.
 ///
 /// ## Examples
 ///
@@ -199,7 +204,7 @@ impl<W: Write, T: Serialize> Sender<W, T> {
         }
     }
 
-    /// Consume this `Sender` and return the inner `io::Write`.
+    /// Consume this `Sender` and return the inner `std::io::Write`.
     pub fn into_inner(self) -> W {
         self.w
     }
@@ -253,7 +258,7 @@ impl<W: Write, T: Serialize> Sender<W, T> {
     }
 }
 
-/// Receives encoded structs of type `T` from an inner `io::Read` instance.
+/// Receives encoded structs of type `T` from an inner `std::io::Read` instance.
 ///
 /// ## Examples
 ///
@@ -276,12 +281,12 @@ impl<R: Read, T: DeserializeOwned> Receiver<R, T> {
         }
     }
 
-    /// Consume this `Receiver` and return the inner `io::Read`.
+    /// Consume this `Receiver` and return the inner `std::io::Read`.
     pub fn into_inner(self) -> R {
         self.r
     }
 
-    /// Receive an encoded frame from the inner `io::Read`, decode it
+    /// Receive an encoded frame from the inner `std::io::Read`, decode it
     /// and return the payload.
     pub fn recv(&mut self) -> Result<T> {
         let payload = super::decode_from_reader::<R>(&mut self.r)?;
