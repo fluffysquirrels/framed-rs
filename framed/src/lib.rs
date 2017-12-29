@@ -245,7 +245,7 @@ extern crate ref_slice;
 extern crate serde;
 
 #[macro_use]
-#[cfg(all(test, feature = "use_std"))]
+#[cfg(test)]
 extern crate serde_derive;
 
 extern crate ssmarshal;
@@ -438,7 +438,7 @@ pub fn decode_to_slice(e: &Encoded, dest: &mut [u8])
     #[cfg(feature = "trace")] {
         println!("framed: body = {:?}\n\
                   framed: decoded = {:?}",
-                 body, dest[0..len]);
+                 body, &dest[0..len]);
     }
 
     Ok(len)

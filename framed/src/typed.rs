@@ -335,7 +335,9 @@ mod tests {
 
             a: [1, 2, 3],
         };
-        println!("Test value: {:#?}", v);
+        #[cfg(feature = "use_std")] {
+            println!("Test value: {:#?}", v);
+        }
         v
     }
 
