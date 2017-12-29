@@ -92,6 +92,7 @@
 //! ```
 
 use ::{Encoded, TempBuffer};
+use ::bytes;
 use ::error::{Result};
 #[cfg(feature = "use_std")]
 use core::marker::PhantomData;
@@ -130,7 +131,7 @@ pub fn encode_to_slice<T: DeserializeOwned + Serialize>(
 
     let ser_len = ssmarshal::serialize(ser_buf, v)?;
     let ser = &ser_buf[0..ser_len];
-    ::encode_to_slice(ser, dest)
+    bytes::encode_to_slice(ser, dest)
 }
 
 /// Decodes the supplied encoded frame `e`, then deserializes its
@@ -156,7 +157,7 @@ pub fn decode_from_slice<T: DeserializeOwned + Serialize>(
 ) -> Result<T> {
     assert!(de_buf.len() >= max_serialize_buf_len::<T>());
 
-    let de_len = ::decode_to_slice(e, de_buf)?;
+    let de_len = bytes::decode_to_slice(e, de_buf)?;
     let payload = &de_buf[0..de_len];
     let (v, _len) = ssmarshal::deserialize(payload)?;
     Ok(v)
@@ -168,7 +169,7 @@ const_fn! {
     ///
     /// Useful for calculating an appropriate buffer length.
     pub fn max_encoded_len<T: Serialize>() -> usize {
-        super::max_encoded_len(max_serialize_buf_len::<T>())
+        bytes::max_encoded_len(max_serialize_buf_len::<T>())
     }
 }
 
@@ -177,7 +178,7 @@ const_fn! {
     /// length needed by `encode_to_slice` and `decode_from_slice` when
     /// serializing or deserializing a value of type `T`.
     pub fn max_serialize_buf_len<T: Serialize>() -> usize {
-        super::max_encoded_len(size_of::<T>())
+        bytes::max_encoded_len(size_of::<T>())
     }
 }
 
@@ -242,7 +243,7 @@ impl<W: Write, T: Serialize> Sender<W, T> {
 
         let ser_len = ssmarshal::serialize(&mut ser_buf, v)?;
         let ser = &ser_buf[0..ser_len];
-        ::encode_to_writer(&ser, &mut self.w)
+        bytes::encode_to_writer(&ser, &mut self.w)
     }
 
     /// Encode the supplied payload as a frame, write it to the
@@ -290,7 +291,7 @@ impl<R: Read, T: DeserializeOwned> Receiver<R, T> {
     /// Receive an encoded frame from the inner `std::io::Read`, decode it
     /// and return the payload.
     pub fn recv(&mut self) -> Result<T> {
-        let payload = super::decode_from_reader::<R>(&mut self.r)?;
+        let payload = bytes::decode_from_reader::<R>(&mut self.r)?;
         let (v, _len) = ssmarshal::deserialize(&*payload)?;
         Ok(v)
     }
