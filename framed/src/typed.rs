@@ -343,6 +343,7 @@ mod tests {
         use super::*;
 
         #[test]
+        #[cfg(feature = "use_nightly")]
         fn roundtrip() {
             let input = test_val();
             let mut ser_buf = [0u8; max_serialize_buf_len::<Test>()];
