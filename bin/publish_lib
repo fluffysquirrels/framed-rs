@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -ex
 
+REPO_DIR=$( cd $(dirname ${BASH_SOURCE[0]})/..; pwd )
+
 rustup toolchain update stable;
-cargo +stable publish --verbose --manifest-path framed/Cargo.toml;
+cargo +stable publish --verbose --manifest-path ${REPO_DIR}/framed/Cargo.toml;
