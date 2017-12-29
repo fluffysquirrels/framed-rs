@@ -15,6 +15,9 @@
 //! transport starts operating without losses again the decoder should
 //! return new uncorrupted frames.
 //!
+//! See the `bytes` or `typed` modules to send and receive raw slices
+//! of bytes or serialized structs respectively.
+//!
 //! ## Encoding
 //!
 //! Currently the encoding is:
@@ -73,9 +76,6 @@
 //! containing a heap-allocated value instead. Consequently `encode_*`
 //! and `decode_*` variants that require this are only available with
 //! the `use_std` Cargo feature.
-//!
-//! See the `bytes` or `typed` modules to send and receive raw slices
-//! of bytes or serialized structs respectively.
 
 #![deny(warnings)]
 #![cfg_attr(not(feature = "use_std"), no_std)]
