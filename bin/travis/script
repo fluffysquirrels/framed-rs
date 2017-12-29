@@ -1,21 +1,6 @@
 #!/usr/bin/env bash
 set -e;
 
-script_dir=$( cd $(dirname ${BASH_SOURCE[0]}); pwd )
-repo_dir=${script_dir}/../..
+REPO_DIR=$( cd $(dirname ${BASH_SOURCE[0]})/../..; pwd )
 
-echo "TRAVIS_RUST_VERSION: '${TRAVIS_RUST_VERSION}'"
-
-set -x;
-
-cd ${repo_dir};
-
-cargo test -p framed --verbose;
-cargo test -p framed --verbose --no-default-features;
-cargo test -p framed --verbose --no-default-features --features=typed;
-cargo test -p framed --verbose --features=trace;
-cargo doc  -p framed --verbose --no-deps;
-
-DECODE_TYPE_CRATE_DIR=test_type \
-    DECODE_TYPE_NAME=framed_test_type::Test \
-    bin/decode_typed < /dev/null;
+TC="${TRAVIS_RUST_VERSION}" ${REPO_DIR}/bin/build_tc

@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -e;
+
+# Run a build with a given toolchain.
+TC=${TC?Supply a toolchain in this environment variable}
+
+echo "Rust toolchain: ${TC}"
+
+REPO_DIR=$( cd $(dirname ${BASH_SOURCE[0]})/..; pwd )
+export CARGO_TARGET_DIR="${REPO_DIR}/target/build_local/${TC}"
+
+set -x;
+
+rustup toolchain update ${TC};
+
+cd ${REPO_DIR}/framed;
+
+# use_std build
+cargo +${TC} test -p framed --verbose --lib;
+
+if [[ "${TC}" == "nightly" ]]; then
+    # no_std build
+    cargo +${TC} test -p framed --verbose --lib \
+          --no-default-features --features=use_nightly;
+
+    # doc tests require nightly
+    cargo +${TC} test -p framed --verbose --doc \
+          --features=use_nightly;
+fi
+
+cargo +${TC} test -p framed --verbose --lib --features=trace;
+cargo +${TC} doc  -p framed --verbose --no-deps;
+
+# TODO: Use correct toolchain.
+DECODE_TYPE_CRATE_DIR=${REPO_DIR}/test_type \
+    DECODE_TYPE_NAME=framed_test_type::Test \
+    ${REPO_DIR}/bin/decode_typed < /dev/null;
