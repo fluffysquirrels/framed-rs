@@ -342,7 +342,7 @@ const HEADER_LEN: usize = 0;
 const FOOTER_LEN: usize = 1;
 
 /// Encode the supplied payload data as a frame at the beginning of
-/// the supplied buffer `dest`.
+/// the supplied buffer `dest`. Available from `no_std` crates.
 ///
 /// Returns the number of bytes it has written to the buffer.
 ///
@@ -388,7 +388,7 @@ pub fn encode_to_writer<W: Write>(p: &Payload, w: &mut W) -> Result<usize> {
 }
 
 /// Decode the supplied encoded frame, placing the payload at the
-/// beginning of the supplied buffer `dest`.
+/// beginning of the supplied buffer `dest`. Available from `no_std` crates.
 ///
 /// When reading from a stream, the caller can continue reading data
 /// and buffering it until a `FRAME_END_SYMBOL` is read, then pass the

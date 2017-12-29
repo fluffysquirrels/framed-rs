@@ -104,6 +104,7 @@ use std::io::{Read, Write};
 
 /// Serializes and encodes the supplied value `v` into destination
 /// buffer `dest`, using `ser_buf` as a temporary serialization buffer.
+/// Available from `no_std` crates.
 ///
 /// Returns the number of bytes written to the beginning of `dest`.
 ///
@@ -134,7 +135,7 @@ pub fn encode_to_slice<T: DeserializeOwned + Serialize>(
 
 /// Decodes the supplied encoded frame `e`, then deserializes its
 /// payload as a value of type `T`, using `de_buf` as a temporary
-/// deserialization buffer.
+/// deserialization buffer. Available from `no_std` crates.
 ///
 /// Returns the deserialized value.
 ///
