@@ -10,6 +10,7 @@ TC=${TC?Supply a toolchain in this environment variable}
 
 export DECODE_TYPE_CRATE_DIR=${REPO_DIR}/test_type
 export DECODE_TYPE_NAME=framed_test_type::Test
+export TC
 
 cargo +${TC} run -p framed_test_type > target/test_output;
 cat target/test_output | hd;
