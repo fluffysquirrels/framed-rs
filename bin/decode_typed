@@ -8,6 +8,8 @@ E.g. \'framed-rs/test_type\'}"
 DECODE_TYPE_NAME="${DECODE_TYPE_NAME?You must set this environment variable with the full name of your serialized type including its module path.
 E.g. \'framed_test_type::Test\'}"
 
+TC=${TC:stable}
+
 echo "DECODE_TYPE_CRATE_DIR = '${DECODE_TYPE_CRATE_DIR}'"
 echo "DECODE_TYPE_NAME = '${DECODE_TYPE_NAME}'"
 
@@ -31,7 +33,7 @@ EOF
 
 
 # Build user type crate.
-cargo rustc \
+cargo +${TC} rustc \
       --manifest-path "${DECODE_TYPE_CRATE_DIR}/Cargo.toml" \
       --lib \
       ${DECODE_TYPE_CARGO_FLAGS} \
@@ -42,7 +44,7 @@ cargo rustc \
 TYPE_CRATE_RLIB="$(ls "${TMP_DIR}"/lib${TYPE_CRATE_NAME}*.rlib)";
 
 # Build decode bin.
-cargo rustc \
+cargo +${TC} rustc \
       --manifest-path "${REPO_DIR}/decode/Cargo.toml" \
       --bin framed_decode \
       ${DECODE_BIN_CARGO_FLAGS} \

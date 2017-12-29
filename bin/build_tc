@@ -32,6 +32,4 @@ cargo +${TC} test -p framed --verbose --lib --features=trace;
 cargo +${TC} doc  -p framed --verbose --no-deps;
 
 # TODO: Use correct toolchain.
-DECODE_TYPE_CRATE_DIR=${REPO_DIR}/test_type \
-    DECODE_TYPE_NAME=framed_test_type::Test \
-    ${REPO_DIR}/bin/decode_typed < /dev/null;
+TC=${TC} ${REPO_DIR}/bin/decode_typed_test
