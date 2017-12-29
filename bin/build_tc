@@ -31,5 +31,4 @@ fi
 cargo +${TC} test -p framed --verbose --lib --features=trace;
 cargo +${TC} doc  -p framed --verbose --no-deps;
 
-# TODO: Use correct toolchain.
 TC=${TC} ${REPO_DIR}/bin/decode_typed_test

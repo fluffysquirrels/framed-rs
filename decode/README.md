@@ -2,6 +2,8 @@
 
 A command line utility to decode data encoded with the `framed` crate.
 
+Clone this repository then run `framed-rs/bin/decode_typed` to use the tool.
+
 ## framed-rs/bin/decode_typed
 
 This command decodes a serialized struct encoded with the
