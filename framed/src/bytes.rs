@@ -366,6 +366,8 @@ impl<R: Read> Receiver<R> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "use_std")]
+    use std::io::Cursor;
     use super::*;
 
     #[test]
@@ -385,9 +387,97 @@ mod tests {
         assert_eq!(max_decoded_len(3)  , 3);
         assert_eq!(max_decoded_len(255), 255);
     }
+
+    // A test payload.
+    const PAYLOAD: [u8; PAYLOAD_LEN] = [0, 1, 2, 3];
+    const PAYLOAD_LEN: usize = 4;
+
+    fn assert_payload_eq(encoded: &Encoded, payload: &Payload) {
+        println!("assert_payload_eq \n\
+                  -  encoded = {:?}\n\
+                  -  payload = {:?}",
+                 encoded, payload);
+        let mut decoded_buf = [0; 100];
+        let len = decode_to_slice(encoded, &mut decoded_buf).unwrap();
+        let decoded = &decoded_buf[0..len];
+        assert_eq!(decoded, payload);
+    }
+
+    #[test]
+    #[should_panic]
+    fn encode_to_slice_dest_too_small() {
+        let mut encoded_buf = [0u8; PAYLOAD_LEN];;
+        let _ = encode_to_slice(&PAYLOAD, &mut encoded_buf);
+    }
+
+    #[test]
+    #[cfg(feature = "use_std")]
+    fn encode_to_slice_ok_dynamic_dest() {
+        let mut encoded_buf = vec![0u8; max_encoded_len(PAYLOAD.len())];
+        let len = encode_to_slice(&PAYLOAD, &mut *encoded_buf).unwrap();
+        let encoded = &encoded_buf[0..len];
+
+        assert_payload_eq(encoded, &PAYLOAD);
+    }
+
+    // use_nightly required for statically allocated buffer
+    #[test]
+    #[cfg(feature = "use_nightly")]
+    fn encode_to_slice_ok_static_dest() {
+        let mut encoded_buf = [0u8; max_encoded_len(PAYLOAD_LEN)];
+        let len = encode_to_slice(&PAYLOAD, &mut encoded_buf).unwrap();
+        let encoded = &encoded_buf[0..len];
+
+        assert_payload_eq(encoded, &PAYLOAD);
+    }
+
+    #[test]
+    #[cfg(feature = "use_std")]
+    fn encode_to_writer_ok() {
+        let mut encoded = vec![];
+        encode_to_writer(&PAYLOAD, &mut encoded).unwrap();
+        assert_payload_eq(&*encoded, &PAYLOAD);
+    }
+
+    #[test]
+    #[should_panic]
+    fn decode_to_slice_dest_too_small() {
+        let encoded = encode_to_box(&PAYLOAD).unwrap();
+        let mut decoded_buf = [0u8; PAYLOAD_LEN - 1];
+        let _ = decode_to_slice(&*encoded, &mut decoded_buf);
+    }
+
+    #[test]
+    #[cfg(feature = "use_std")]
+    fn decode_to_slice_ok_dynamic_dest() {
+        let encoded = encode_to_box(&PAYLOAD).unwrap();
+        let mut decoded_buf = vec![0u8; max_decoded_len(encoded.len())];
+        let len = decode_to_slice(&*encoded, &mut decoded_buf).unwrap();
+        let decoded = &decoded_buf[0..len];
+
+        assert_eq!(&PAYLOAD, decoded);
+    }
+
+    #[test]
+    #[cfg(feature = "use_std")]
+    fn decode_to_box_ok() {
+        let encoded = encode_to_box(&PAYLOAD).unwrap();
+        let decoded = decode_to_box(&*encoded).unwrap();
+
+        assert_eq!(&PAYLOAD, &*decoded);
+    }
+
+    #[test]
+    #[cfg(feature = "use_std")]
+    fn decode_from_reader_ok() {
+        let encoded = encode_to_box(&PAYLOAD).unwrap();
+        let mut reader = Cursor::new(&*encoded);
+        let decoded = decode_from_reader::<Cursor<&[u8]>>(&mut reader).unwrap();
+        assert_eq!(&*decoded, &PAYLOAD);
+    }
 }
 
-// TODO: Add tests for all encode_*, decode_* functions.
+// TODO: Some more roundtrip cases.
 
 #[cfg(all(test, feature = "use_std"))]
 mod rw_tests {
