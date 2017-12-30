@@ -595,6 +595,21 @@ mod tests {
 
     #[test]
     #[cfg(feature = "use_std")]
+    fn decode_to_slice_missing_bytes() {
+        let encoded = encode_to_box(&PAYLOAD).unwrap();
+        let encoded = &encoded[1..encoded.len()];
+
+        let mut decoded_buf = vec![0u8; max_decoded_len(encoded.len())];
+        let res = decode_to_slice(&*encoded, &mut decoded_buf);
+
+        match res {
+            Err(Error::ChecksumError) => (),
+            _ => panic!("Bad output: {:?}", res),
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "use_std")]
     fn decode_to_box_ok() {
         let encoded = encode_to_box(&PAYLOAD).unwrap();
         let decoded = decode_to_box(&*encoded).unwrap();
