@@ -392,11 +392,21 @@ mod tests {
     const PAYLOAD: [u8; PAYLOAD_LEN] = [0, 1, 2, 3];
     const PAYLOAD_LEN: usize = 4;
 
+    const ENCODED_LEN: usize = 100;
+
+    /// Returns an encoded frame with payload PAYLOAD.
+    fn encoded_payload(buf: &mut [u8; ENCODED_LEN]) -> &[u8] {
+        let len = encode_to_slice(&PAYLOAD, buf).unwrap();
+        &buf[0..len]
+    }
+
     fn assert_payload_eq(encoded: &Encoded, payload: &Payload) {
-        println!("assert_payload_eq \n\
-                  -  encoded = {:?}\n\
-                  -  payload = {:?}",
-                 encoded, payload);
+        #[cfg(feature = "use_std")] {
+            println!("assert_payload_eq \n\
+                      -  encoded = {:?}\n\
+                      -  payload = {:?}",
+                     encoded, payload);
+        }
         let mut decoded_buf = [0; 100];
         let len = decode_to_slice(encoded, &mut decoded_buf).unwrap();
         let decoded = &decoded_buf[0..len];
@@ -442,7 +452,8 @@ mod tests {
     #[test]
     #[should_panic]
     fn decode_to_slice_dest_too_small() {
-        let encoded = encode_to_box(&PAYLOAD).unwrap();
+        let mut buf = [0; ENCODED_LEN];
+        let encoded = encoded_payload(&mut buf);
         let mut decoded_buf = [0u8; PAYLOAD_LEN - 1];
         let _ = decode_to_slice(&*encoded, &mut decoded_buf);
     }
