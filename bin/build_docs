@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -ex
+
+rustup toolchain update nightly;
+
+cargo +nightly doc -p framed --verbose --no-deps --features use_nightly;
