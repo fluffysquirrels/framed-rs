@@ -22,8 +22,13 @@
 //!
 //! Currently the encoding is:
 //!
-//! * The "body": payload [COBS]-encoded to remove bytes equal to zero
-//! * A terminating zero byte.
+//! * Header:
+//!   * Nothing here yet.
+//! * Body: payload [COBS]-encoded to remove bytes equal to zero
+//! * Footer:
+//!   * A 2 byte checksum.
+//!   * A terminating zero byte.
+//!
 //! [COBS]: https://en.wikipedia.org/wiki/Consistent_Overhead_Byte_Stuffing
 //!
 //! The encoding is not stable at the moment, i.e. it can and will
@@ -171,13 +176,14 @@ macro_rules! const_fn {
 }
 
 // ## extern crate statements
+extern crate byteorder;
 extern crate cobs;
 
 #[cfg(feature = "use_std")]
 extern crate core;
 
+extern crate crc16;
 extern crate ref_slice;
-
 extern crate serde;
 
 #[macro_use]

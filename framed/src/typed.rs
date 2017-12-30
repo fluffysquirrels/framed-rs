@@ -386,17 +386,17 @@ mod tests {
 
         #[test]
         fn serialize_buf_len() {
-            assert_eq!(max_serialize_buf_len::<Test>(), 42);
-            assert_eq!(max_serialize_buf_len::<u8>(), 3);
-            assert_eq!(max_serialize_buf_len::<u16>(), 4);
-            assert_eq!(max_serialize_buf_len::<u32>(), 6);
-            assert_eq!(max_serialize_buf_len::<u64>(), 10);
+            assert_eq!(max_serialize_buf_len::<Test>(), 44);
+            assert_eq!(max_serialize_buf_len::<u8>(), 5);
+            assert_eq!(max_serialize_buf_len::<u16>(), 6);
+            assert_eq!(max_serialize_buf_len::<u32>(), 8);
+            assert_eq!(max_serialize_buf_len::<u64>(), 12);
         }
 
         #[test]
         fn encoded_len() {
-            assert_eq!(max_encoded_len::<Test>(), 44);
-            assert_eq!(max_encoded_len::<u8>(), 5);
+            assert_eq!(max_encoded_len::<Test>(), 48);
+            assert_eq!(max_encoded_len::<u8>(), 9);
         }
     }
 

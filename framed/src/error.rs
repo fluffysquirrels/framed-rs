@@ -19,6 +19,9 @@ pub enum Error {
     /// COBS decode failed
     CobsDecodeFailed,
 
+    /// Checksum error: the received frame was corrupted.
+    ChecksumError,
+
     /// End of data while reading a frame; we received some of a frame
     /// but it was incomplete.
     EofDuringFrame,

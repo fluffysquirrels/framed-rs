@@ -74,7 +74,9 @@ use ::{Payload, Encoded, FRAME_END_SYMBOL};
 #[cfg(feature = "use_std")]
 use ::{BoxPayload, BoxEncoded};
 use ::error::{Error, Result};
+use byteorder::{self, ByteOrder};
 use cobs;
+use crc16;
 
 #[cfg(feature = "use_std")]
 use ref_slice::ref_slice_mut;
@@ -84,7 +86,18 @@ use std::io::{self, Read, Write};
 
 const HEADER_LEN: usize = 0;
 
-const FOOTER_LEN: usize = 1;
+const CHECKSUM_LEN: usize = 2;
+
+const FOOTER_LEN: usize = CHECKSUM_LEN + 1;
+
+const FRAMING_LEN: usize = HEADER_LEN + FOOTER_LEN;
+
+fn checksum(p: &Payload) -> [u8; CHECKSUM_LEN] {
+    let u16 = crc16::State::<crc16::CDMA2000>::calculate(p);
+    let mut bytes = [0u8; CHECKSUM_LEN];
+    byteorder::NetworkEndian::write_u16(&mut bytes, u16);
+    bytes
+}
 
 /// Encode the supplied payload data as a frame at the beginning of
 /// the supplied buffer `dest`. Available from `no_std` crates.
@@ -96,17 +109,29 @@ const FOOTER_LEN: usize = 1;
 /// This function will panic if `dest` is not large enough for the encoded frame.
 /// Ensure `dest.len() >= max_encoded_len(p.len())`.
 pub fn encode_to_slice(p: &Payload, dest: &mut Encoded) -> Result<usize> {
-    // Panic if code won't fit in `dest` because this is a programmer error.
+    // Panic if encoded frame won't fit in `dest` because this is a
+    // programmer error.
     assert!(max_encoded_len(p.len()) <= dest.len());
 
     let cobs_len = cobs::encode(&p, &mut dest[HEADER_LEN..]);
-    let footer_idx = HEADER_LEN + cobs_len;
-    dest[footer_idx] = FRAME_END_SYMBOL;
+    let checksum = checksum(p);
 
-    #[cfg(feature = "trace")] {
-        println!("framed: Frame code = {:?}", &dest[0..(footer_idx + 1)]);
+    {
+        let mut _header = &mut dest[0..HEADER_LEN];
     }
-    Ok(cobs_len + HEADER_LEN + FOOTER_LEN)
+    {
+        let footer = &mut dest[
+            (HEADER_LEN + cobs_len)
+            ..
+            (HEADER_LEN + cobs_len + FOOTER_LEN)];
+        footer[0..CHECKSUM_LEN].copy_from_slice(&checksum);
+        footer[CHECKSUM_LEN] = FRAME_END_SYMBOL;
+    }
+    let len = HEADER_LEN + cobs_len + FOOTER_LEN;
+    #[cfg(feature = "trace")] {
+        println!("framed: Encoded frame = {:?}", &dest[0..len]);
+    }
+    Ok(len)
 }
 
 /// Encode the supplied payload data as a frame and return it on the heap.
@@ -167,6 +192,10 @@ pub fn decode_to_slice(e: &Encoded, dest: &mut [u8])
         return Err(Error::EofBeforeFrame);
     }
 
+    if e.len() < FRAMING_LEN {
+        return Err(Error::EofDuringFrame);
+    }
+
     if e[e.len()-1] != FRAME_END_SYMBOL {
         return Err(Error::EofDuringFrame)
     }
@@ -174,19 +203,34 @@ pub fn decode_to_slice(e: &Encoded, dest: &mut [u8])
     assert!(dest.len() >= max_decoded_len(e.len()));
     assert_eq!(e[e.len() - 1], FRAME_END_SYMBOL);
 
-    // Just the body (COBS-encoded payload).
-    let body = &e[0..(e.len()-1)];
-
-    let len = cobs::decode(body, dest)
-                   .map_err(|_| Error::CobsDecodeFailed)?;
+    let _header = &e[0..HEADER_LEN];
+    let body = &e[HEADER_LEN..(e.len() - FOOTER_LEN)];
+    let footer = &e[(e.len() - FOOTER_LEN)..e.len()];
 
     #[cfg(feature = "trace")] {
-        println!("framed: body = {:?}\n\
-                  framed: decoded = {:?}",
-                 body, &dest[0..len]);
+        println!("framed: header = {:?}\n\
+                  framed: body = {:?}\n\
+                  framed: footer = {:?}",
+                 _header, body, footer);
     }
 
-    Ok(len)
+    let decoded_len = cobs::decode(body, dest)
+                   .map_err(|_| Error::CobsDecodeFailed)?;
+
+    let decoded = &dest[0..decoded_len];
+    let calc_checksum = checksum(decoded);
+    let received_checksum = &footer[0..CHECKSUM_LEN];
+
+    if calc_checksum != received_checksum {
+        return Err(Error::ChecksumError);
+    }
+
+    #[cfg(feature = "trace")] {
+        println!("framed: decoded = {:?}",
+                 decoded);
+    }
+
+    Ok(decoded_len)
 }
 
 /// Decode the supplied encoded frame, returning the payload on the heap.
@@ -372,11 +416,11 @@ mod tests {
 
     #[test]
     fn max_encoded_len_ok() {
-        assert_eq!(max_encoded_len(0)  , 2);
-        assert_eq!(max_encoded_len(1)  , 3);
-        assert_eq!(max_encoded_len(2)  , 4);
-        assert_eq!(max_encoded_len(254), 257);
-        assert_eq!(max_encoded_len(255), 258);
+        assert_eq!(max_encoded_len(0)  , 4);
+        assert_eq!(max_encoded_len(1)  , 5);
+        assert_eq!(max_encoded_len(2)  , 6);
+        assert_eq!(max_encoded_len(254), 259);
+        assert_eq!(max_encoded_len(255), 260);
     }
 
     #[test]
@@ -501,7 +545,7 @@ mod rw_tests {
     fn one_frame() {
         let (mut tx, mut rx) = pair();
         let p = [0x00, 0x01, 0x02];
-        assert_eq!(tx.send(&p).unwrap(), 5);
+        tx.send(&p).unwrap();
         let recvd = rx.recv().unwrap();
         assert_eq!(*recvd, p);
     }
@@ -511,14 +555,14 @@ mod rw_tests {
         let (mut tx, mut rx) = pair();
         {
             let sent = [0x00, 0x01, 0x02];
-            assert_eq!(tx.send(&sent).unwrap(), 5);
+            tx.send(&sent).unwrap();
             let recvd = rx.recv().unwrap();
             assert_eq!(*recvd, sent);
         }
 
         {
             let sent = [0x10, 0x11, 0x12];
-            assert_eq!(tx.send(&sent).unwrap(), 5);
+            tx.send(&sent).unwrap();
             let recvd = rx.recv().unwrap();
             assert_eq!(*recvd, sent);
         }
