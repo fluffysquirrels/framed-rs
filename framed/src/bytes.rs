@@ -454,7 +454,7 @@ mod tests {
     const PAYLOAD: [u8; PAYLOAD_LEN] = [0, 1, 2, 3];
     const PAYLOAD_LEN: usize = 4;
 
-    const ENCODED_LEN: usize = 100;
+    const ENCODED_LEN: usize = 9;
 
     /// Returns an encoded frame with payload PAYLOAD.
     fn encoded_payload(buf: &mut [u8; ENCODED_LEN]) -> &[u8] {
@@ -529,6 +529,68 @@ mod tests {
         let decoded = &decoded_buf[0..len];
 
         assert_eq!(&PAYLOAD, decoded);
+    }
+
+    #[test]
+    #[cfg(feature = "use_std")]
+    fn decode_to_slice_no_end_symbol() {
+        let encoded = vec![FRAME_END_SYMBOL + 1; max_encoded_len(0)];
+        let mut decoded_buf = [];
+        let res = decode_to_slice(&*encoded, &mut decoded_buf);
+
+        match res {
+            Err(Error::EofDuringFrame) => (),
+            _ => panic!("Bad output: {:?}", res),
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "use_std")]
+    fn decode_to_slice_encoded_too_short() {
+        let encoded = vec![FRAME_END_SYMBOL; FRAMING_LEN - 1];
+        let mut decoded_buf = [];
+        let res = decode_to_slice(&*encoded, &mut decoded_buf);
+
+        match res {
+            Err(Error::EofDuringFrame) => (),
+            _ => panic!("Bad output: {:?}", res),
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "use_std")]
+    fn decode_to_slice_encoded_empty() {
+        let encoded = vec![];
+        let mut decoded_buf = [];
+        let res = decode_to_slice(&*encoded, &mut decoded_buf);
+
+        match res {
+            Err(Error::EofBeforeFrame) => (),
+            _ => panic!("Bad output: {:?}", res),
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "use_std")]
+    fn decode_to_slice_bad_checksum() {
+        let encoded = encode_to_box(&PAYLOAD).unwrap();
+        let mut encoded = Vec::from(&*encoded);
+        let checksum_offset = encoded.len() - FOOTER_LEN;
+
+        {
+            let checksum = &mut encoded[checksum_offset..
+                                        (checksum_offset + CHECKSUM_LEN)];
+            checksum[0] = checksum[0].wrapping_add(1);
+            checksum[1] = checksum[1].wrapping_add(2);
+        }
+
+        let mut decoded_buf = vec![0u8; max_decoded_len(encoded.len())];
+        let res = decode_to_slice(&*encoded, &mut decoded_buf);
+
+        match res {
+            Err(Error::ChecksumError) => (),
+            _ => panic!("Bad output: {:?}", res),
+        }
     }
 
     #[test]
