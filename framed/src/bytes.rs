@@ -113,11 +113,19 @@ pub fn encode_to_slice(p: &Payload, dest: &mut Encoded) -> Result<usize> {
     // programmer error.
     assert!(max_encoded_len(p.len()) <= dest.len());
 
+    #[cfg(feature = "trace")] {
+        println!("framed::encode: Payload = {:?}", p);
+    }
+
     let cobs_len = cobs::encode(&p, &mut dest[HEADER_LEN..]);
     let checksum = checksum(p);
 
     {
         let mut _header = &mut dest[0..HEADER_LEN];
+
+        #[cfg(feature = "trace")] {
+            println!("framed::encode: Header = {:?}", _header);
+        }
     }
     {
         let footer = &mut dest[
@@ -126,10 +134,13 @@ pub fn encode_to_slice(p: &Payload, dest: &mut Encoded) -> Result<usize> {
             (HEADER_LEN + cobs_len + FOOTER_LEN)];
         footer[0..CHECKSUM_LEN].copy_from_slice(&checksum);
         footer[CHECKSUM_LEN] = FRAME_END_SYMBOL;
+        #[cfg(feature = "trace")] {
+            println!("framed::encode: Footer = {:?}", footer);
+        }
     }
     let len = HEADER_LEN + cobs_len + FOOTER_LEN;
     #[cfg(feature = "trace")] {
-        println!("framed: Encoded frame = {:?}", &dest[0..len]);
+        println!("framed::encode: Frame = {:?}", &dest[0..len]);
     }
     Ok(len)
 }
@@ -185,7 +196,7 @@ pub fn encode_to_writer<W: Write>(p: &Payload, w: &mut W) -> Result<usize> {
 pub fn decode_to_slice(e: &Encoded, dest: &mut [u8])
 -> Result<usize> {
     #[cfg(feature = "trace")] {
-        println!("framed: Encoded input = {:?}", e);
+        println!("framed::decode: Encoded = {:?}", e);
     }
 
     if e.len() == 0 {
@@ -208,9 +219,9 @@ pub fn decode_to_slice(e: &Encoded, dest: &mut [u8])
     let footer = &e[(e.len() - FOOTER_LEN)..e.len()];
 
     #[cfg(feature = "trace")] {
-        println!("framed: header = {:?}\n\
-                  framed: body = {:?}\n\
-                  framed: footer = {:?}",
+        println!("framed::decode: header = {:?}\n\
+                  framed::decode: body = {:?}\n\
+                  framed::decode: footer = {:?}",
                  _header, body, footer);
     }
 
@@ -218,16 +229,23 @@ pub fn decode_to_slice(e: &Encoded, dest: &mut [u8])
                    .map_err(|_| Error::CobsDecodeFailed)?;
 
     let decoded = &dest[0..decoded_len];
+
+    #[cfg(feature = "trace")] {
+        println!("framed::decode: payload = {:?}",
+                 decoded);
+    }
+
     let calc_checksum = checksum(decoded);
     let received_checksum = &footer[0..CHECKSUM_LEN];
 
-    if calc_checksum != received_checksum {
-        return Err(Error::ChecksumError);
+    #[cfg(feature = "trace")] {
+        println!("framed::decode: calc checksum = {:?}\n\
+                  framed::decode: recv checksum = {:?}",
+                 calc_checksum, received_checksum);
     }
 
-    #[cfg(feature = "trace")] {
-        println!("framed: decoded = {:?}",
-                 decoded);
+    if calc_checksum != received_checksum {
+        return Err(Error::ChecksumError);
     }
 
     Ok(decoded_len)
