@@ -12,6 +12,11 @@ the `serde::Deserialize` and `std::fmt::Debug` traits.
 
 [typed]: https://docs.rs/framed/*/framed/typed/index.html
 
+Note: you must install [`jq`][jq] and have it on your path.
+[jq]: https://stedolan.github.io/jq/
+
+On Ubuntu you can install it with: `sudo apt install jq`.
+
 Here's an example. The main binary in crate `framed_test_type` writes
 a serialized and encoded `framed_test_type::Test` struct to stdout;
 first save that to a file:
@@ -79,8 +84,13 @@ OPTIONS:
             Csv, Debug, Json]
 ```
 
-Note: you must install [`jq`][jq] and have it on your path.
+To customize the output for your type, try creating a tuple struct
+with a custom Debug implementation. See `CustomDebug` in test_type for
+an example:
 
-On Ubuntu you can install it with: `sudo apt install jq`.
+```text
+~/framed-rs % export DECODE_TYPE_NAME=framed_test_type::CustomDebug;
+~/framed-rs % < test_data  bin/decode_typed
 
-[jq]: https://stedolan.github.io/jq/
+CustomDebug a=0x000000ff, b=0x2
+```
