@@ -2,6 +2,10 @@
 
 Rust crate to send and receive data over lossy streams of bytes.
 
+* Supports sending slices of bytes or serde-serialized types.
+* Uses a checksum to detect and skip corrupted frames.
+* Includes a command-line tool to decode and display serialized types.
+
 [![Crate](https://img.shields.io/crates/v/framed.svg)](https://crates.io/crates/framed)
 
 Documentation:
