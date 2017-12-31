@@ -14,7 +14,7 @@ mod error;
 use error::{Error, Result};
 
 use clap::Arg;
-use std::io::{stdin, stdout};
+use std::io::{stdin, stdout, stderr, Write};
 
 arg_enum! {
     #[derive(Debug, Eq, PartialEq)]
@@ -58,18 +58,29 @@ fn try() -> Result<()> {
         };
 
     loop {
+        // Note: Output is flushed after each line so output on stdout
+        //       and messages on stderr are in sync.
+
         let res = r.recv();
         match res {
             Ok(v) => match out_fmt {
-                OutputFormat::Csv => csvw.as_mut()
-                                         .expect("Should've been initialized")
-                                         .serialize(&v)?,
+                OutputFormat::Csv => {
+                    let csvw = csvw.as_mut()
+                                   .expect("Should've been initialized");
+                    csvw.serialize(&v)?;
+                    csvw.flush()?;
+                }
                 OutputFormat::Debug => println!("{:#?}", v),
                 OutputFormat::Json => {
                     serde_json::to_writer(stdout(), &v)?;
                     println!("");
+                    stdout().flush()?;
                 },
             },
+            Err(ref e) if e.is_corrupt_frame() => {
+                eprintln!("WARN: Corrupt frame, error: {:?}", e);
+                stderr().flush()?;
+            }
             Err(framed::Error::EofBeforeFrame) => return Ok(()),
             Err(e) => return Err(Error::from(e)),
         };

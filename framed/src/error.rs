@@ -40,6 +40,21 @@ pub enum Error {
     Ssmarshal(ssmarshal::Error),
 }
 
+impl Error {
+    /// Returns true if the error represents a corrupted frame. Data
+    /// may have been lost but the decoder should decode the next
+    /// frame correctly.
+    pub fn is_corrupt_frame(&self) -> bool {
+        match *self {
+            Error::ChecksumError |
+            Error::CobsDecodeFailed |
+            Error::EofDuringFrame
+                => true,
+            _ => false,
+        }
+    }
+}
+
 #[cfg(feature = "use_std")]
 impl From<io::Error> for Error {
     fn from(e: io::Error) -> Error {
