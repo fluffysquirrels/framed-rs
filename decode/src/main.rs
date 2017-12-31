@@ -14,7 +14,6 @@ mod error;
 use error::{Error, Result};
 
 use clap::Arg;
-use framed::typed::Receiver;
 use std::io::{stdin, stdout};
 
 arg_enum! {
@@ -47,7 +46,9 @@ fn try() -> Result<()> {
     let matches = app.get_matches();
     let out_fmt = value_t!(matches, "out-format", OutputFormat)?;
 
-    let mut r = Receiver::<_, UserType>::new(stdin());
+    let mut r = framed::bytes::Config::default()
+                                      .typed::<UserType>()
+                                      .into_receiver(stdin());
 
     let mut csvw: Option<csv::Writer<_>> =
         match out_fmt {

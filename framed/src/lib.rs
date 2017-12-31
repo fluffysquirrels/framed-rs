@@ -26,7 +26,7 @@
 //!   * Nothing here yet.
 //! * Body: payload [COBS]-encoded to remove bytes equal to zero
 //! * Footer:
-//!   * A 2 byte checksum.
+//!   * A variable length checksum, depending on configuration in `framed::bytes::Config`.
 //!   * A terminating zero byte.
 //!
 //! [COBS]: https://en.wikipedia.org/wiki/Consistent_Overhead_Byte_Stuffing
@@ -83,6 +83,7 @@
 //! the `use_std` Cargo feature.
 
 #![deny(warnings)]
+#![deny(missing_docs)]
 #![cfg_attr(not(feature = "use_std"), no_std)]
 
 #![cfg_attr(feature = "use_nightly", feature(const_fn))]
@@ -196,8 +197,10 @@ extern crate ssmarshal;
 // ## Sub-modules
 pub mod bytes;
 
-#[cfg(feature = "use_std")]
-pub mod channel;
+#[cfg(all(test, feature = "use_std"))]
+mod channel;
+
+mod checksum;
 
 pub mod error;
 pub use error::{Error, Result};

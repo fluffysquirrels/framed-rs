@@ -3,7 +3,6 @@
 extern crate framed;
 extern crate framed_test_type as lib;
 
-use framed::typed::Sender;
 use lib::Test;
 use std::io::stdout;
 
@@ -14,6 +13,8 @@ fn main() {
     };
 
     eprintln!("test_type/main.rs: Sending sample value: {:#?}", t);
-    let mut s = Sender::<_, Test>::new(stdout());
+    let mut s = framed::bytes::Config::default()
+                                      .typed::<Test>()
+                                      .into_sender(stdout());
     s.send(&t).unwrap();
 }
