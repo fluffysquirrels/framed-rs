@@ -8,7 +8,7 @@ extern crate derive_error;
 extern crate framed;
 extern crate serde_json;
 
-include!(env!("FRAMED_DECODE_DYNAMIC_RS"));
+include!(env!("FRAMED_DECODE_DYNAMIC_RS")); // Try building with `framed-rs/bin/decode_typed`. See documentation in `framed-rs/decode/README.md`.
 
 mod error;
 use error::{Error, Result};
