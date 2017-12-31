@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-set -ex
+set -e
 
-# A manual test for framed_decode.
+# Run tests for framed_decode.
 
 REPO_DIR="$(cd $(dirname ${BASH_SOURCE[0]} )/..; pwd )"
 cd ${REPO_DIR};
@@ -12,7 +12,71 @@ export DECODE_TYPE_CRATE_DIR=${REPO_DIR}/test_type
 export DECODE_TYPE_NAME=framed_test_type::Test
 export TC
 
-cargo +${TC} run -p framed_test_type > target/test_output;
-cat target/test_output | hd;
-cat target/test_output | ${REPO_DIR}/bin/decode_typed;
-seq 5 | xargs -I% cat target/test_output | ${REPO_DIR}/bin/decode_typed;
+TEST_TMP="${REPO_DIR}/target/decode_typed_test"
+
+mkdir -p "${TEST_TMP}";
+
+source "${REPO_DIR}/bin/build_decode_typed";
+
+TEST_OUT="${TEST_TMP}/test_out";
+cargo +${TC} run -p framed_test_type > "${TEST_OUT}";
+
+TEST_FRAME="$(cat "${TEST_OUT}";)";
+
+function test_case() {
+    flags="${flags?expected}";
+    expect="${expect?expected}";
+    name="${name?expected}";
+
+    IFS=' ' read -r -a flags_arr <<< "$flags";
+
+    out="$(${DECODE_PATH} "${flags_arr[@]}" 2>&1 < /dev/stdin)";
+    if [[ "$out" == "$expect" ]]; then
+        echo "Test '${name}' OK";
+    else
+        echo "Test '${name}' failed";
+        exit 1;
+    fi
+}
+
+
+< /dev/null \
+name="Empty input" flags="" \
+expect="" test_case;
+
+( cat "${TEST_OUT}" ) | \
+name="1 frame --out-format=Debug" flags="" \
+expect="Test {
+    a: 1,
+    b: 2
+}" test_case;
+
+( cat "${TEST_OUT}" ) | \
+name="1 frame --out-format=Csv" flags="--out-format=Csv" \
+expect="a,b
+1,2" test_case;
+
+( cat "${TEST_OUT}" ) | \
+name="1 frame --out-format=Json" flags="--out-format=Json" \
+expect="{\"a\":1,\"b\":2}" test_case;
+
+( cat "${TEST_OUT}" "${TEST_OUT}" ) | \
+name="2 frames --out-format=Csv" flags="--out-format=Csv" \
+expect="a,b
+1,2
+1,2" test_case;
+
+( printf "\x1\x1\x1\x1\x1\x1\x1\x1\x1\x0" ) | \
+name="Checksum error" flags="" \
+expect="WARN: Corrupt frame, error: ChecksumError" test_case;
+
+( printf "\x0" ) | \
+name="Frame too short" flags="" \
+expect="WARN: Corrupt frame, error: EofDuringFrame" test_case;
+
+( cat "${TEST_OUT}"; printf "\x0"; cat "${TEST_OUT}" ) | \
+name="Output continues after corrupt frame" flags="--out-format=Csv" \
+expect="a,b
+1,2
+WARN: Corrupt frame, error: EofDuringFrame
+1,2" test_case;
