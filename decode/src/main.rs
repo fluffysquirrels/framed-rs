@@ -48,7 +48,7 @@ fn try() -> Result<()> {
 
     let mut r = framed::bytes::Config::default()
                                       .typed::<UserType>()
-                                      .into_receiver(stdin());
+                                      .to_receiver(stdin());
 
     let mut csvw: Option<csv::Writer<_>> =
         match out_fmt {

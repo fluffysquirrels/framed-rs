@@ -14,19 +14,19 @@
 //! # use framed::bytes::*;
 //! # use std::io::Cursor;
 //! #
-//! let config = Config::default();
+//! let mut config = Config::default();
 //!
 //! let payload = [1, 2, 3];
 //!
 //! let mut encoded = vec![];
 //! {
-//!     let mut sender = config.clone().into_sender(&mut encoded);
+//!     let mut sender = config.clone().to_sender(&mut encoded);
 //!     sender.send(&payload).expect("send ok");
 //! }
 //!
 //! // `encoded` now contains the encoded frame.
 //!
-//! let mut receiver = config.clone().into_receiver(Cursor::new(encoded));
+//! let mut receiver = config.clone().to_receiver(Cursor::new(encoded));
 //! let decoded = receiver.recv().expect("recv ok");
 //!
 //! assert_eq!(payload, *decoded);
@@ -42,7 +42,7 @@
 //! # use framed::*;
 //! # use framed::bytes::*;
 //! #
-//! let mut codec = Config::default().into_codec();
+//! let mut codec = Config::default().to_codec();
 //!
 //! // In a no_std crate without dynamic memory allocation we would typically
 //! // know the maximum payload length, which we can use for payload buffers.
@@ -98,7 +98,7 @@ pub use ::checksum::Checksum;
 /// specific configuration.
 ///
 /// Construct an instance from a `Config` instance with the
-/// `Config::into_codec` method.
+/// `Config::to_codec` method.
 pub struct Codec {
     config: Config
 }
@@ -114,33 +114,33 @@ pub struct Config {
 
 impl Config {
     /// Construct a `Codec` instance with this configuration.
-    pub fn into_codec(self) -> Codec {
+    pub fn to_codec(&mut self) -> Codec {
         Codec {
-            config: self,
+            config: self.clone(),
         }
     }
 
     #[cfg(feature = "use_std")]
     /// Construct a `Receiver` instance with this configuration.
-    pub fn into_receiver<R: Read>(self, r: R) -> Receiver<R> {
+    pub fn to_receiver<R: Read>(&mut self, r: R) -> Receiver<R> {
         Receiver::<R> {
-            codec: self.into_codec(),
+            codec: self.to_codec(),
             r: r,
         }
     }
 
     #[cfg(feature = "use_std")]
     /// Construct a `Sender` instance with this configuration.
-    pub fn into_sender<W: Write>(self, w: W) -> Sender<W> {
+    pub fn to_sender<W: Write>(&mut self, w: W) -> Sender<W> {
         Sender::<W> {
-            codec: self.into_codec(),
+            codec: self.to_codec(),
             w: w,
         }
     }
 
     /// Construct a `framed::typed::Config` instance to encode and decode a
     /// serializable type `T` with this byte encoding configuration.
-    pub fn typed<T: DeserializeOwned + Serialize>(self) -> typed::Config<T> {
+    pub fn typed<T: DeserializeOwned + Serialize>(&mut self) -> typed::Config<T> {
         typed::Config::<T>::new(self)
     }
 
@@ -528,7 +528,7 @@ mod tests {
     }
 
     fn codec() -> Codec {
-        Config::default().into_codec()
+        Config::default().to_codec()
     }
 
     // A test payload.
@@ -710,9 +710,39 @@ mod tests {
         let decoded = c.decode_from_reader::<Cursor<&[u8]>>(&mut reader).unwrap();
         assert_eq!(&*decoded, &PAYLOAD);
     }
-}
 
-// TODO: Some more roundtrip cases.
+    #[test]
+    #[cfg(feature = "use_std")]
+    fn roundtrip_default_config() {
+        roundtrip_case(&mut Config::default()
+                                   .to_codec(),
+                       &PAYLOAD)
+    }
+
+    #[test]
+    #[cfg(feature = "use_std")]
+    fn roundtrip_no_checksum() {
+        roundtrip_case(&mut Config::default()
+                               .set_checksum(Checksum::None)
+                               .to_codec(),
+                       &PAYLOAD)
+    }
+
+    #[test]
+    #[cfg(feature = "use_std")]
+    fn roundtrip_empty_payload() {
+        roundtrip_case(&mut Config::default()
+                                   .to_codec(),
+                       &[])
+    }
+
+    #[cfg(feature = "use_std")]
+    fn roundtrip_case(c: &mut Codec, payload: &Payload) {
+        let encoded = c.encode_to_box(payload).unwrap();
+        let decoded = c.decode_to_box(&*encoded).unwrap();
+        assert_eq!(&*decoded, payload);
+    }
+}
 
 #[cfg(all(test, feature = "use_std"))]
 mod rw_tests {
@@ -778,7 +808,7 @@ mod rw_tests {
     #[test]
     fn partial_input() {
         let chan = Channel::new();
-        let mut rx = config().into_receiver(chan.reader());
+        let mut rx = config().to_receiver(chan.reader());
         let mut tx_raw = chan.writer();
         tx_raw.write(&[0x01]).unwrap();
         match rx.recv() {
@@ -794,8 +824,8 @@ mod rw_tests {
     fn pair() -> (Sender<Box<Write>>, Receiver<Box<Read>>) {
         let chan = Channel::new();
         let c = config();
-        let tx = c.clone().into_sender(Box::new(chan.writer()) as Box<Write>);
-        let rx = c.clone().into_receiver(Box::new(chan.reader()) as Box<Read>);
+        let tx = c.clone().to_sender(Box::new(chan.writer()) as Box<Write>);
+        let rx = c.clone().to_receiver(Box::new(chan.reader()) as Box<Read>);
         (tx, rx)
     }
 }

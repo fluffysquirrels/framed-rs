@@ -15,6 +15,6 @@ fn main() {
     eprintln!("test_type/main.rs: Sending sample value: {:#?}", t);
     let mut s = framed::bytes::Config::default()
                                       .typed::<Test>()
-                                      .into_sender(stdout());
+                                      .to_sender(stdout());
     s.send(&t).unwrap();
 }

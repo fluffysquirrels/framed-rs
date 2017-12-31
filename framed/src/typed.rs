@@ -34,17 +34,17 @@
 //!     }
 //!
 //!     let payload = Test { a: 1, b: 2 };
-//!     let config = framed::bytes::Config::default().typed::<Test>();
+//!     let mut config = framed::bytes::Config::default().typed::<Test>();
 //!
 //!     let mut encoded = vec![];
 //!     {
-//!         let mut sender = config.clone().into_sender(&mut encoded);
+//!         let mut sender = config.clone().to_sender(&mut encoded);
 //!         sender.send(&payload).expect("send ok");
 //!     }
 //!
 //!     // `encoded` now contains the encoded value.
 //!
-//!     let mut receiver = config.clone().into_receiver(Cursor::new(encoded));
+//!     let mut receiver = config.clone().to_receiver(Cursor::new(encoded));
 //!     let decoded = receiver.recv().expect("recv ok");
 //!
 //!     assert_eq!(payload, decoded);
@@ -73,9 +73,9 @@
 //! #   }
 //! #
 //! #   let payload = Test { a: 1, b: 2 };
-//! #   let config = bytes::Config::default().typed::<Test>();
+//! #   let mut config = bytes::Config::default().typed::<Test>();
 //! #
-//!     let mut codec = config.into_codec();
+//!     let mut codec = config.to_codec();
 //!     let mut ser_buf = [0u8; max_serialize_buf_len::<Test>()];
 //!     let mut encoded_buf = [0u8; max_encoded_len::<Test>()];
 //!     let encoded_len = codec.encode_to_slice(
@@ -110,7 +110,7 @@ use std::io::{Read, Write};
 /// with a specific configuration.
 ///
 /// Construct an instance from a `Config` instance with the
-/// `Config::into_codec` method.
+/// `Config::to_codec` method.
 pub struct Codec<T: DeserializeOwned + Serialize> {
     bytes_codec: bytes::Codec,
     _phantom: PhantomData<T>,
@@ -135,35 +135,35 @@ impl<T: DeserializeOwned + Serialize> Clone for Config<T> {
 }
 
 impl<T: DeserializeOwned + Serialize> Config<T> {
-    pub(crate) fn new(bytes_config: bytes::Config) -> Config<T> {
+    pub(crate) fn new(bytes_config: &bytes::Config) -> Config<T> {
         Config::<T> {
-            bytes_config: bytes_config,
+            bytes_config: bytes_config.clone(),
             _phantom: PhantomData::<T>::default(),
         }
     }
 
     /// Construct a `Codec` instance with this configuration.
-    pub fn into_codec(self) -> Codec<T> {
+    pub fn to_codec(&mut self) -> Codec<T> {
         Codec::<T> {
-            bytes_codec: self.bytes_config.into_codec(),
+            bytes_codec: self.bytes_config.to_codec(),
             _phantom: PhantomData::<T>::default(),
         }
     }
 
     #[cfg(feature = "use_std")]
     /// Construct a `Receiver` instance with this configuration.
-    pub fn into_receiver<R: Read>(self, r: R) -> Receiver<R, T> {
+    pub fn to_receiver<R: Read>(&mut self, r: R) -> Receiver<R, T> {
         Receiver::<R, T> {
-            codec: self.into_codec(),
+            codec: self.to_codec(),
             r: r,
         }
     }
 
     #[cfg(feature = "use_std")]
     /// Construct a `Sender` instance with this configuration.
-    pub fn into_sender<W: Write>(self, w: W) -> Sender<W, T> {
+    pub fn to_sender<W: Write>(&mut self, w: W) -> Sender<W, T> {
         Sender::<W, T> {
-            codec: self.into_codec(),
+            codec: self.to_codec(),
             w: w,
         }
     }
@@ -400,7 +400,7 @@ mod tests {
     }
 
     fn codec() -> Codec<Test> {
-        bytes::Config::default().typed::<Test>().into_codec()
+        bytes::Config::default().typed::<Test>().to_codec()
     }
 
     mod slice_tests {
@@ -492,9 +492,9 @@ mod tests {
             let chan = Channel::new();
             let conf = bytes::Config::default().typed::<Test>();
             let tx = conf.clone()
-                         .into_sender(Box::new(chan.writer()) as Box<Write>);
+                         .to_sender(Box::new(chan.writer()) as Box<Write>);
             let rx = conf.clone()
-                         .into_receiver(Box::new(chan.reader()) as Box<Read>);
+                         .to_receiver(Box::new(chan.reader()) as Box<Read>);
             (tx, rx)
         }
     }
