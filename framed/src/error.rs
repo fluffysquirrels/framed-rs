@@ -29,9 +29,6 @@ pub enum Error {
     /// End of data before a frame started; we received none of a frame.
     EofBeforeFrame,
 
-    /// The supplied value was too short to be an encoded frame
-    EncodedFrameTooShort,
-
     /// Forwarded io::Error.
     #[cfg(feature = "use_std")]
     Io(io::Error),
