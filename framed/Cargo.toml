@@ -15,11 +15,11 @@ branch = "master"
 
 [dependencies]
 byteorder = { version = "^1.2.1", default-features = false }
-cobs = "^0.1.3"
+cobs = { version = "^0.1.3", default-features = false }
 crc16 = "^0.3.4"
 ref_slice = "^1.1.1"
-serde = "^1.0"
-ssmarshal = "^1.0"
+serde = { version = "^1.0", default-features = false }
+ssmarshal = { version = "^1.0", default-features = false }
 
 [dev-dependencies]
 serde_derive = "^1.0"
@@ -31,7 +31,7 @@ default = ["use_std"]
 trace = []
 
 # Use standard library. Enabled by default, disable for no_std.
-use_std = []
+use_std = ["serde/std", "ssmarshal/std"]
 
 # Enables unstable features that only work on nightly rust.
 # Required for practical no_std use.
