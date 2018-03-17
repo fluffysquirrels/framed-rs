@@ -8,4 +8,9 @@ rust:
  - nightly
 cache: cargo
 
+addons:
+  apt:
+    packages:
+    - jq
+
 script: bin/travis/script
