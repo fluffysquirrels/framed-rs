@@ -24,17 +24,9 @@ if [[ "${TC}" == "nightly" ]]; then
     cargo +${TC} test -p framed --verbose --lib \
           --no-default-features --features=use_nightly;
 
-    # xargo arm build
-    rustup component add rust-src --toolchain ${TC};
-    xargo_latest=$(curl https://crates.io/api/v1/crates/xargo \
-                   | jq '.versions|sort_by(.created_at)|last|.num' -r);
-    if cargo +${TC} install --list | egrep --no-messages --quiet "xargo v${xargo_latest}"; then
-        echo "xargo version already latest."
-    else
-        cargo +${TC} install --verbose --force xargo;
-    fi
+    rustup target add --toolchain "${TC}" thumbv7em-none-eabihf
 
-    rustup run ${TC} xargo build --verbose --lib \
+    cargo +${TC} build --verbose --lib \
         --target thumbv7em-none-eabihf \
         --no-default-features --features=use_nightly;
 
@@ -46,4 +38,4 @@ fi
 cargo +${TC} test -p framed --verbose --lib --features=trace;
 cargo +${TC} doc  -p framed --verbose --no-deps;
 
-TC=${TC} ${REPO_DIR}/bin/decode_typed_test
+TC=${TC} ${REPO_DIR}/bin/decode_typed_test;
