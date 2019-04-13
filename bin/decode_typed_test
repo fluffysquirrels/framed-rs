@@ -48,7 +48,7 @@ expect="" test_case;
 name="1 frame --out-format=Debug" flags="" \
 expect="Test {
     a: 1,
-    b: 2,
+    b: 2
 }" test_case;
 
 ( cat "${TEST_OUT}" ) | \

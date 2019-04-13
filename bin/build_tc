@@ -38,4 +38,8 @@ fi
 cargo +${TC} test -p framed --verbose --lib --features=trace;
 cargo +${TC} doc  -p framed --verbose --no-deps;
 
-TC=${TC} ${REPO_DIR}/bin/decode_typed_test;
+if [[ "${TC}" == "stable" ]]; then
+    # Only run decode_typed_test on stable because currently the Debug format
+    # is different between stable and nightly and stable is the default for decode_typed.
+    TC=${TC} ${REPO_DIR}/bin/decode_typed_test;
+fi
