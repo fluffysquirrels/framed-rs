@@ -309,8 +309,13 @@ impl Codec {
                      _header, body, footer);
         }
 
-        let decoded_len = cobs::decode(body, dest)
-            .map_err(|_| Error::CobsDecodeFailed)?;
+        let decoded_len =
+            if body.len() == 0 {
+                0
+            } else {
+                cobs::decode(body, dest)
+                    .map_err(|_| Error::CobsDecodeFailed)?
+            };
 
         let decoded = &dest[0..decoded_len];
 
