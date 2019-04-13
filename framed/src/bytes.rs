@@ -743,8 +743,12 @@ mod tests {
 
     #[cfg(feature = "use_std")]
     fn roundtrip_case(c: &mut Codec, payload: &Payload) {
-        let encoded = c.encode_to_box(payload).unwrap();
-        let decoded = c.decode_to_box(&*encoded).unwrap();
+        let encoded = c.encode_to_box(payload);
+        println!("encoded: {:?}", encoded);
+        let encoded = encoded.unwrap();
+        let decoded = c.decode_to_box(&*encoded);
+        println!("decoded: {:?}", decoded);
+        let decoded = decoded.unwrap();
         assert_eq!(&*decoded, payload);
     }
 }
