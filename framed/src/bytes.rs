@@ -292,6 +292,9 @@ impl Codec {
                     .map_err(|_| Error::CobsDecodeFailed)?
             };
         let cobs_decoded = &dest[0..cobs_decoded_len];
+        if cobs_decoded_len < self.checksum().len() {
+            return Err(Error::EofDuringFrame);
+        }
         let payload = &cobs_decoded[0..cobs_decoded_len - self.checksum().len()];
 
         #[cfg(feature = "trace")] {
