@@ -17,7 +17,7 @@ repository = "fluffysquirrels/framed-rs"
 branch = "master"
 
 [dependencies]
-clap = { version = "^2.29.0", features = ["wrap_help"] }
+clap = { version = "^2.33.0", features = ["wrap_help"] }
 csv = "^1.0.0-beta.5"
 derive-error = "^0.0.4"
 framed = { path = "../framed" }
