@@ -10,7 +10,10 @@
 1. Increment version number in Cargo.toml (major version if breaking changes).
 1. `cargo update` to update framed version in Cargo.lock.
 1. Commit to update the version number.
-1. Add a git tag for the new version number. Push it to [GitHub][github].
+1. Add a git tag for the new version number and push it to [GitHub][github]:
+
+    `git tag vX.Y.Z && git push --tags`
+
 1. Publish with `bin/publish_lib`.
 1. Check new version appears on
    [![Crate](https://img.shields.io/crates/v/framed.svg)][crates]
