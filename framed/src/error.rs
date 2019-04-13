@@ -19,6 +19,9 @@ pub enum Error {
     /// COBS decode failed
     CobsDecodeFailed,
 
+    /// COBS encode failed
+    CobsEncodeFailed,
+
     /// Checksum error: the received frame was corrupted.
     ChecksumError,
 

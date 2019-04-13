@@ -22,12 +22,12 @@
 //!
 //! Currently the encoding is:
 //!
-//! * Header:
-//!   * Nothing here yet.
-//! * Body: payload [COBS]-encoded to remove bytes equal to zero
-//! * Footer:
-//!   * A variable length checksum, depending on configuration in `framed::bytes::Config`.
-//!   * A terminating zero byte.
+//! * Frame [COBS]-encoded to remove bytes equal to zero
+//!   * Payload: supplied by user
+//!   * Footer:
+//!     * A checksum computed over the payload. The type of checksum depends
+//!       on the configuration in `framed::bytes::Config`.
+//! * A terminating zero byte.
 //!
 //! [COBS]: https://en.wikipedia.org/wiki/Consistent_Overhead_Byte_Stuffing
 //!

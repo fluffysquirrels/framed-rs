@@ -156,27 +156,17 @@ impl Config {
     }
 }
 
-const MAX_HEADER_LEN: usize = 0;
-
-const MAX_FOOTER_LEN: usize = MAX_CHECKSUM_LEN + 1;
-
-const MAX_FRAMING_LEN: usize = MAX_HEADER_LEN + MAX_FOOTER_LEN;
+const MAX_FRAMING_LEN: usize = MAX_CHECKSUM_LEN + 1;
 
 impl Codec {
     fn checksum(&self) -> &Checksum {
         &self.config.checksum
     }
 
-    fn header_len(&self) -> usize {
-        0
-    }
-
-    fn footer_len(&self) -> usize {
-        1 + self.checksum().len()
-    }
-
-    fn framing_len(&self) -> usize {
-        self.header_len() + self.footer_len()
+    fn min_frame_len(&self) -> usize {
+        0 // payload length
+        + self.checksum().len()
+        + 1 // sentinel length
     }
 
     /// Encode the supplied payload data as a frame at the beginning of
@@ -198,30 +188,25 @@ impl Codec {
             println!("framed::encode: Payload = {:?}", p);
         }
 
-        let cobs_len = cobs::encode(&p, &mut dest[self.header_len()..]);
-        let checksum = self.checksum();
-        let checksum_value = checksum.calculate(p);
-        let checksum_len = checksum.len();
+        let checksum_type = self.checksum();
+        let checksum_value = checksum_type.calculate(p);
 
-        {
-            let mut _header = &mut dest[0..self.header_len()];
+        let cobs_len = {
+            let mut cobs_enc = cobs::CobsEncoder::new(dest);
+            cobs_enc.push(p)
+                    .map_err(|_| Error::CobsEncodeFailed)?;
+            if checksum_value.len() > 0 {
+                cobs_enc.push(&*checksum_value)
+                        .map_err(|_| Error::CobsEncodeFailed)?;
+            }
+            let cobs_len = cobs_enc.finalize()
+                                   .map_err(|_| Error::CobsEncodeFailed)?;
+            cobs_len
+        };
+        dest[cobs_len] = FRAME_END_SYMBOL;
 
-            #[cfg(feature = "trace")] {
-                println!("framed::encode: Header = {:?}", _header);
-            }
-        }
-        {
-            let footer = &mut dest[
-                (self.header_len() + cobs_len)
-                    ..
-                    (self.header_len() + cobs_len + self.footer_len())];
-            footer[0..checksum_len].copy_from_slice(&*checksum_value);
-            footer[checksum_len] = FRAME_END_SYMBOL;
-            #[cfg(feature = "trace")] {
-                println!("framed::encode: Footer = {:?}", footer);
-            }
-        }
-        let len = self.header_len() + cobs_len + self.footer_len();
+        // len is cobs_len + len(FRAME_END_SYMBOL)
+        let len = cobs_len + 1;
         #[cfg(feature = "trace")] {
             println!("framed::encode: Frame = {:?}", &dest[0..len]);
         }
@@ -287,7 +272,7 @@ impl Codec {
             return Err(Error::EofBeforeFrame);
         }
 
-        if e.len() < self.framing_len() {
+        if e.len() < self.min_frame_len() {
             return Err(Error::EofDuringFrame);
         }
 
@@ -298,47 +283,39 @@ impl Codec {
         assert!(dest.len() >= max_decoded_len(e.len()));
         assert_eq!(e[e.len() - 1], FRAME_END_SYMBOL);
 
-        let _header = &e[0..self.header_len()];
-        let body = &e[self.header_len()..(e.len() - self.footer_len())];
-        let footer = &e[(e.len() - self.footer_len())..e.len()];
-
-        #[cfg(feature = "trace")] {
-            println!("framed::decode: header = {:?}\n\
-                      framed::decode: body = {:?}\n\
-                      framed::decode: footer = {:?}",
-                     _header, body, footer);
-        }
-
-        let decoded_len =
-            if body.len() == 0 {
+        let cobs_payload = &e[0..e.len() - 1];
+        let cobs_decoded_len =
+            if cobs_payload.len() == 0 {
                 0
             } else {
-                cobs::decode(body, dest)
+                cobs::decode(cobs_payload, dest)
                     .map_err(|_| Error::CobsDecodeFailed)?
             };
-
-        let decoded = &dest[0..decoded_len];
+        let cobs_decoded = &dest[0..cobs_decoded_len];
+        let payload = &cobs_decoded[0..cobs_decoded_len - self.checksum().len()];
 
         #[cfg(feature = "trace")] {
+            println!("framed::decode: cobs_decoded = {:?}",
+                     cobs_decoded);
             println!("framed::decode: payload = {:?}",
-                     decoded);
+                     payload);
         }
 
         let checksum = self.checksum();
-        let calc_checksum = checksum.calculate(decoded);
-        let received_checksum = &footer[0..checksum.len()];
+        let calc_checksum = checksum.calculate(payload);
+        let recv_checksum = &cobs_decoded[payload.len() .. payload.len() + checksum.len()];
 
         #[cfg(feature = "trace")] {
-            println!("framed::decode: calc checksum = {:?}\n\
-                      framed::decode: recv checksum = {:?}",
-                     calc_checksum, received_checksum);
+            println!("framed::decode: calc_checksum = {:?}\n\
+                      framed::decode: recv_checksum = {:?}",
+                     calc_checksum, recv_checksum);
         }
 
-        if &*calc_checksum != received_checksum {
+        if &*calc_checksum != recv_checksum {
             return Err(Error::ChecksumError);
         }
 
-        Ok(decoded_len)
+        Ok(payload.len())
     }
 
     /// Decode the supplied encoded frame, returning the payload on the heap.
@@ -634,7 +611,7 @@ mod tests {
     #[cfg(feature = "use_std")]
     fn decode_to_slice_encoded_too_short() {
         let mut c = codec();
-        let encoded = vec![FRAME_END_SYMBOL; c.framing_len() - 1];
+        let encoded = vec![FRAME_END_SYMBOL; c.min_frame_len() - 1];
         let mut decoded_buf = [];
         let res = c.decode_to_slice(&*encoded, &mut decoded_buf);
 
@@ -663,7 +640,7 @@ mod tests {
         let mut c = codec();
         let encoded = c.encode_to_box(&PAYLOAD).unwrap();
         let mut encoded = Vec::from(&*encoded);
-        let checksum_offset = encoded.len() - c.footer_len();
+        let checksum_offset = encoded.len() - c.checksum().len() - 1;
 
         {
             let checksum =
