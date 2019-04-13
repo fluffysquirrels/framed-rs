@@ -186,8 +186,8 @@ impl<T: DeserializeOwned + Serialize> Codec<T> {
     ///
     /// ## Examples
     ///
-    /// See the [no_std usage example][ex] in the `typed` module documentation.
-    /// [ex]: index.html#example-usage-from-a-no_std-crate
+    /// See the [no_std usage example](index.html#example-usage-from-a-no_std-crate)
+    /// in the `typed` module documentation.
     pub fn encode_to_slice(
         &mut self,
         v: &T,
@@ -217,8 +217,8 @@ impl<T: DeserializeOwned + Serialize> Codec<T> {
     ///
     /// ## Examples
     ///
-    /// See the [no_std usage example][ex] in the `typed` module documentation.
-    /// [ex]: index.html#example-usage-from-a-no_std-crate
+    /// See the [no_std usage example](index.html#example-usage-from-a-no_std-crate)
+    /// in the `typed` module documentation.
     pub fn decode_from_slice(
         &mut self,
         e: &Encoded,
@@ -259,8 +259,8 @@ const_fn! {
 ///
 /// ## Examples
 ///
-/// See the [std usage example][ex] in the `typed` module documentation.
-/// [ex]: index.html#example-usage-from-a-std-crate
+/// See the [std usage example](index.html#example-usage-from-a-std-crate)
+/// in the `typed` module documentation.
 #[cfg(feature = "use_std")]
 pub struct Sender<W: Write, T: DeserializeOwned + Serialize> {
     codec: Codec<T>,
@@ -329,8 +329,8 @@ impl<W: Write, T: DeserializeOwned + Serialize> Sender<W, T> {
 ///
 /// ## Examples
 ///
-/// See the [std usage example][ex] in the `typed` module documentation.
-/// [ex]: index.html#example-usage-from-a-std-crate
+/// See the [std usage example](index.html#example-usage-from-a-std-crate)
+/// in the `typed` module documentation.
 #[cfg(feature = "use_std")]
 pub struct Receiver<R: Read, T: DeserializeOwned + Serialize> {
     codec: Codec<T>,
