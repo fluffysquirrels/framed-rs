@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
-set -ex
+set -ex;
+
+# Compute repo directory.
+readonly repo_dir="$( cd $(dirname ${BASH_SOURCE})/..; pwd )";
 
 rustup toolchain update nightly;
 
 cargo +nightly doc -p framed --verbose --no-deps --features use_nightly;
+
+echo "Docs built to file://${repo_dir}/target/doc/framed/index.html";
