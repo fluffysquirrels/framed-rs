@@ -336,7 +336,7 @@ impl Codec {
     /// Reads bytes from the supplied `Read` until it has a complete
     /// encoded frame, then decodes the frame, returning the payload on the heap.
     #[cfg(feature = "use_std")]
-    pub fn decode_from_reader<R: Read>(&mut self, r: &mut Read)
+    pub fn decode_from_reader<R: Read>(&mut self, r: &mut dyn Read)
     -> Result<BoxPayload> {
         // Read until FRAME_END_SYMBOL
         let mut next_frame = Vec::new();
@@ -544,7 +544,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn encode_to_slice_dest_too_small() {
-        let mut encoded_buf = [0u8; PAYLOAD_LEN];;
+        let mut encoded_buf = [0u8; PAYLOAD_LEN];
         let _ = codec().encode_to_slice(&PAYLOAD, &mut encoded_buf);
     }
 
@@ -810,11 +810,11 @@ mod rw_tests {
         Config::default()
     }
 
-    fn pair() -> (Sender<Box<Write>>, Receiver<Box<Read>>) {
+    fn pair() -> (Sender<Box<dyn Write>>, Receiver<Box<dyn Read>>) {
         let chan = Channel::new();
         let c = config();
-        let tx = c.clone().to_sender(Box::new(chan.writer()) as Box<Write>);
-        let rx = c.clone().to_receiver(Box::new(chan.reader()) as Box<Read>);
+        let tx = c.clone().to_sender(Box::new(chan.writer()) as Box<dyn Write>);
+        let rx = c.clone().to_receiver(Box::new(chan.reader()) as Box<dyn Read>);
         (tx, rx)
     }
 }

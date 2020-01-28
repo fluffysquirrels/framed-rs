@@ -488,13 +488,13 @@ mod tests {
             }
         }
 
-        fn pair() -> (Sender<Box<Write>, Test>, Receiver<Box<Read>, Test>) {
+        fn pair() -> (Sender<Box<dyn Write>, Test>, Receiver<Box<dyn Read>, Test>) {
             let chan = Channel::new();
             let conf = bytes::Config::default().typed::<Test>();
             let tx = conf.clone()
-                         .to_sender(Box::new(chan.writer()) as Box<Write>);
+                         .to_sender(Box::new(chan.writer()) as Box<dyn Write>);
             let rx = conf.clone()
-                         .to_receiver(Box::new(chan.reader()) as Box<Read>);
+                         .to_receiver(Box::new(chan.reader()) as Box<dyn Read>);
             (tx, rx)
         }
     }
