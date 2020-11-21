@@ -82,6 +82,8 @@
 //! and `decode_*` variants that require this are only available with
 //! the `use_std` Cargo feature.
 
+#![warn(missing_docs)]
+
 #![cfg_attr(not(feature = "use_std"), no_std)]
 
 #![cfg_attr(feature = "use_nightly", feature(const_fn))]
@@ -249,7 +251,7 @@ impl Deref for BoxPayload {
     }
 }
 
-/// Heap-allocated frame data used as a return type.
+// Heap-allocated frame data used as a return type.
 #[cfg(feature = "use_std")]
 #[derive(Debug)]
 pub struct BoxEncoded(Vec<u8>);
