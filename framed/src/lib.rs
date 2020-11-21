@@ -251,7 +251,7 @@ impl Deref for BoxPayload {
     }
 }
 
-// Heap-allocated frame data used as a return type.
+/// Heap-allocated frame data used as a return type.
 #[cfg(feature = "use_std")]
 #[derive(Debug)]
 pub struct BoxEncoded(Vec<u8>);
