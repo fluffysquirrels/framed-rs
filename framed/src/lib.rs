@@ -82,8 +82,6 @@
 //! and `decode_*` variants that require this are only available with
 //! the `use_std` Cargo feature.
 
-#![deny(warnings)]
-#![deny(missing_docs)]
 #![cfg_attr(not(feature = "use_std"), no_std)]
 
 #![cfg_attr(feature = "use_nightly", feature(const_fn))]

@@ -1,5 +1,3 @@
-#![deny(warnings)]
-
 extern crate framed;
 extern crate framed_test_type as lib;
 
