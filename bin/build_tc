@@ -16,6 +16,8 @@ rustup toolchain update ${TC};
 
 cd ${REPO_DIR}/framed;
 
+export RUSTFLAGS="--deny warnings";
+
 # use_std build
 cargo +${TC} test -p framed --verbose --lib;
 
