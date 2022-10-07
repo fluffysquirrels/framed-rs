@@ -15,7 +15,7 @@ branch = "master"
 
 [dependencies]
 byteorder = { version = "^1.2.1", default-features = false }
-cobs = { version = "^0.1.4", default-features = false }
+cobs = { version = "^0.2.3", default-features = false }
 crc16 = "^0.3.4"
 ref_slice = "^1.1.1"
 serde = { version = "^1.0", default-features = false }
