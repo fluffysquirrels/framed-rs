@@ -688,6 +688,15 @@ mod tests {
 
     #[test]
     #[cfg(feature = "use_std")]
+    fn decode_to_box_extra_byte_in_front() {
+        let encoded = codec().encode_to_box(&PAYLOAD).unwrap();
+        let encoded_with_extra_in_front = [&[3], &*encoded].concat();
+        let decoded = codec().decode_to_box(&encoded_with_extra_in_front);
+        assert!(decoded.is_err());
+    }
+
+    #[test]
+    #[cfg(feature = "use_std")]
     fn decode_from_reader_ok() {
         let mut c = codec();
         let encoded = c.encode_to_box(&PAYLOAD).unwrap();
