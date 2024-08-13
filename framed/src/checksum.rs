@@ -7,6 +7,7 @@ use crc16;
 
 /// A checksum algorithm configuration to use when encoding data.
 #[derive(Clone, Debug)]
+#[derive(Default)]
 pub enum Checksum {
     /// Use no checksum.
     None,
@@ -15,14 +16,10 @@ pub enum Checksum {
     /// This is the default checksum.
     ///
     /// [impl]: https://docs.rs/crc16/0.3.4/crc16/enum.CDMA2000.html
+    #[default]
     Crc16Cdma2000,
 }
 
-impl Default for Checksum {
-    fn default() -> Checksum {
-        Checksum::Crc16Cdma2000
-    }
-}
 
 pub(crate) const MAX_CHECKSUM_LEN: usize = 2;
 
@@ -67,12 +64,12 @@ impl Deref for ChecksumValue {
 
 impl PartialEq for ChecksumValue {
     fn eq(&self, other: &ChecksumValue) -> bool {
-        self.deref() == other.deref()
+        **self == **other
     }
 }
 
 impl Debug for ChecksumValue {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
-        write!(f, "{:?}", self.deref())
+        write!(f, "{:?}", &**self)
     }
 }

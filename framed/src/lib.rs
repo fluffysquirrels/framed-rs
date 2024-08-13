@@ -40,10 +40,10 @@
 //!
 //! ## Cargo feature flags
 //!
-//! `use_std`: Use standard library. Enabled by default, disable for no_std.
+//! `use_std`: Use standard library. Enabled by default, disable for `no_std`.
 //!
 //! `use_nightly`:  Enables unstable features that only work on nightly rust.
-//!                 Required for practical no_std use.
+//!                 Required for practical `no_std` use.
 //!
 //! `trace`: Enable to print all data to stdout for testing.
 //!
@@ -247,7 +247,7 @@ impl Deref for BoxPayload {
     type Target = [u8];
 
     fn deref(&self) -> &[u8] {
-        &*self.0
+        &self.0
     }
 }
 
@@ -268,7 +268,7 @@ impl Deref for BoxEncoded {
     type Target = [u8];
 
     fn deref(&self) -> &[u8] {
-        &*self.0
+        &self.0
     }
 }
 

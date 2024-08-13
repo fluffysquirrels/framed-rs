@@ -32,11 +32,11 @@ pub enum Error {
     /// End of data before a frame started; we received none of a frame.
     EofBeforeFrame,
 
-    /// Forwarded io::Error.
+    /// Forwarded `io::Error`.
     #[cfg(feature = "use_std")]
     Io(io::Error),
 
-    /// Forwarded ssmarshal::Error.
+    /// Forwarded `ssmarshal::Error`.
     Ssmarshal(ssmarshal::Error),
 }
 
@@ -44,14 +44,11 @@ impl Error {
     /// Returns true if the error represents a corrupted frame. Data
     /// may have been lost but the decoder should decode the next
     /// frame correctly.
-    pub fn is_corrupt_frame(&self) -> bool {
-        match *self {
+    #[must_use] pub fn is_corrupt_frame(&self) -> bool {
+        matches!(*self,
             Error::ChecksumError |
             Error::CobsDecodeFailed |
-            Error::EofDuringFrame
-                => true,
-            _ => false,
-        }
+            Error::EofDuringFrame)
     }
 }
 

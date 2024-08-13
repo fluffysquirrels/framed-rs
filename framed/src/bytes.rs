@@ -32,7 +32,7 @@
 //! assert_eq!(payload, *decoded);
 //! ```
 //!
-//! ## Example usage from a no_std crate
+//! ## Example usage from a `no_std` crate
 //!
 //! The `encode_to_slice` and `decode_from_slice` functions offer an
 //! API for `no_std` crates that do not have a heap allocator
@@ -125,7 +125,7 @@ impl Config {
     pub fn to_receiver<R: Read>(&mut self, r: R) -> Receiver<R> {
         Receiver::<R> {
             codec: self.to_codec(),
-            r: r,
+            r,
         }
     }
 
@@ -134,7 +134,7 @@ impl Config {
     pub fn to_sender<W: Write>(&mut self, w: W) -> Sender<W> {
         Sender::<W> {
             codec: self.to_codec(),
-            w: w,
+            w,
         }
     }
 
@@ -145,7 +145,7 @@ impl Config {
     }
 
     /// Get the current checksum configuration.
-    pub fn checksum(&self) -> &Checksum {
+    #[must_use] pub fn checksum(&self) -> &Checksum {
         &self.checksum
     }
 
@@ -164,8 +164,7 @@ impl Codec {
     }
 
     fn min_frame_len(&self) -> usize {
-        0 // payload length
-        + self.checksum().len()
+        self.checksum().len()
         + 1 // sentinel length
     }
 
@@ -194,13 +193,17 @@ impl Codec {
         let cobs_len = {
             let mut cobs_enc = cobs::CobsEncoder::new(dest);
             cobs_enc.push(p)
-                    .map_err(|_| Error::CobsEncodeFailed)?;
+                    .map_err(|()| Error::CobsEncodeFailed)?;
             if checksum_value.len() > 0 {
-                cobs_enc.push(&*checksum_value)
-                        .map_err(|_| Error::CobsEncodeFailed)?;
+                cobs_enc.push(&checksum_value)
+                        .map_err(|()| Error::CobsEncodeFailed)?;
             }
             let cobs_len = cobs_enc.finalize()
-                                   .map_err(|_| Error::CobsEncodeFailed)?;
+                                   .map_err(|()| Error::CobsEncodeFailed)?;
+            // make sure sentinel is not in output buffer
+            for x in &mut dest[..cobs_len] {
+                *x ^= FRAME_END_SYMBOL;
+            }
             cobs_len
         };
         dest[cobs_len] = FRAME_END_SYMBOL;
@@ -217,7 +220,7 @@ impl Codec {
     #[cfg(feature = "use_std")]
     pub fn encode_to_box(&mut self, p: &Payload) -> Result<BoxEncoded> {
         let mut buf = vec![0; max_encoded_len(p.len())];
-        let len = self.encode_to_slice(p, &mut *buf)?;
+        let len = self.encode_to_slice(p, &mut buf)?;
         buf.truncate(len);
         Ok(BoxEncoded::from(buf))
     }
@@ -233,7 +236,7 @@ impl Codec {
     pub fn encode_to_writer<W: Write>(&mut self, p: &Payload, w: &mut W)
     -> Result<usize> {
         let b = self.encode_to_box(p)?;
-        w.write_all(&*b.0)?;
+        w.write_all(&b.0)?;
         Ok(b.len())
     }
 
@@ -245,7 +248,7 @@ impl Codec {
     /// whole buffer including `FRAME_END_SYMBOL` to this function for
     /// decoding.
     ///
-    /// If there is more than 1 FRAME_END_SYMBOL within `e`, the result
+    /// If there is more than 1 `FRAME_END_SYMBOL` within `e`, the result
     /// is undefined. Make sure you only pass 1 frame at a time.
     ///
     /// Returns the length of the payload it has decoded.
@@ -268,7 +271,7 @@ impl Codec {
             println!("framed::decode: Encoded = {:?}", e);
         }
 
-        if e.len() == 0 {
+        if e.is_empty() {
             return Err(Error::EofBeforeFrame);
         }
 
@@ -285,11 +288,11 @@ impl Codec {
 
         let cobs_payload = &e[0..e.len() - 1];
         let cobs_decoded_len =
-            if cobs_payload.len() == 0 {
+            if cobs_payload.is_empty() {
                 0
             } else {
-                cobs::decode(cobs_payload, dest)
-                    .map_err(|_| Error::CobsDecodeFailed)?
+                cobs::decode_with_sentinel(cobs_payload, dest, FRAME_END_SYMBOL)
+                    .map_err(|()| Error::CobsDecodeFailed)?
             };
         let cobs_decoded = &dest[0..cobs_decoded_len];
         if cobs_decoded_len < self.checksum().len() {
@@ -324,7 +327,7 @@ impl Codec {
     /// Decode the supplied encoded frame, returning the payload on the heap.
     #[cfg(feature = "use_std")]
     pub fn decode_to_box(&mut self, e: &Encoded) -> Result<BoxPayload> {
-        if e.len() == 0 {
+        if e.is_empty() {
             return Err(Error::EofBeforeFrame);
         }
         let mut buf = vec![0; max_decoded_len(e.len())];
@@ -350,9 +353,9 @@ impl Codec {
                 // In the 2 EOF cases defer to decode_to_box to return the
                 // correct error (EofBeforeFrame or EofDuringFrame).
                 Err(ref e) if e.kind() == io::ErrorKind::UnexpectedEof =>
-                    return self.decode_to_box(&*next_frame),
+                    return self.decode_to_box(&next_frame),
                 Ok(0) =>
-                    return self.decode_to_box(&*next_frame),
+                    return self.decode_to_box(&next_frame),
 
                 Err(e) => return Err(Error::from(e)),
                 Ok(1) => (),
@@ -369,7 +372,7 @@ impl Codec {
         }
         assert_eq!(next_frame[next_frame.len()-1], FRAME_END_SYMBOL);
 
-        self.decode_to_box(&*next_frame)
+        self.decode_to_box(&next_frame)
     }
 } // End of impl Codec.
 
@@ -531,9 +534,8 @@ mod tests {
     fn assert_payload_eq(encoded: &Encoded, payload: &Payload) {
         #[cfg(feature = "use_std")] {
             println!("assert_payload_eq \n\
-                      -  encoded = {:?}\n\
-                      -  payload = {:?}",
-                     encoded, payload);
+                      -  encoded = {encoded:?}\n\
+                      -  payload = {payload:?}");
         }
         let mut decoded_buf = [0; 100];
         let len = codec().decode_to_slice(encoded, &mut decoded_buf).unwrap();
@@ -552,7 +554,7 @@ mod tests {
     #[cfg(feature = "use_std")]
     fn encode_to_slice_ok_dynamic_dest() {
         let mut encoded_buf = vec![0u8; max_encoded_len(PAYLOAD.len())];
-        let len = codec().encode_to_slice(&PAYLOAD, &mut *encoded_buf).unwrap();
+        let len = codec().encode_to_slice(&PAYLOAD, &mut encoded_buf).unwrap();
         let encoded = &encoded_buf[0..len];
 
         assert_payload_eq(encoded, &PAYLOAD);
@@ -574,7 +576,7 @@ mod tests {
     fn encode_to_writer_ok() {
         let mut encoded = vec![];
         codec().encode_to_writer(&PAYLOAD, &mut encoded).unwrap();
-        assert_payload_eq(&*encoded, &PAYLOAD);
+        assert_payload_eq(&encoded, &PAYLOAD);
     }
 
     #[test]
@@ -583,7 +585,7 @@ mod tests {
         let mut buf = [0; ENCODED_LEN];
         let encoded = encoded_payload(&mut buf);
         let mut decoded_buf = [0u8; PAYLOAD_LEN - 1];
-        let _ = codec().decode_to_slice(&*encoded, &mut decoded_buf);
+        let _ = codec().decode_to_slice(encoded, &mut decoded_buf);
     }
 
     #[test]
@@ -591,7 +593,7 @@ mod tests {
     fn decode_to_slice_ok_dynamic_dest() {
         let encoded = codec().encode_to_box(&PAYLOAD).unwrap();
         let mut decoded_buf = vec![0u8; max_decoded_len(encoded.len())];
-        let len = codec().decode_to_slice(&*encoded, &mut decoded_buf).unwrap();
+        let len = codec().decode_to_slice(&encoded, &mut decoded_buf).unwrap();
         let decoded = &decoded_buf[0..len];
 
         assert_eq!(&PAYLOAD, decoded);
@@ -602,7 +604,7 @@ mod tests {
     fn decode_to_slice_no_end_symbol() {
         let encoded = vec![FRAME_END_SYMBOL + 1; max_encoded_len(0)];
         let mut decoded_buf = [];
-        let res = codec().decode_to_slice(&*encoded, &mut decoded_buf);
+        let res = codec().decode_to_slice(&encoded, &mut decoded_buf);
 
         match res {
             Err(Error::EofDuringFrame) => (),
@@ -616,7 +618,7 @@ mod tests {
         let mut c = codec();
         let encoded = vec![FRAME_END_SYMBOL; c.min_frame_len() - 1];
         let mut decoded_buf = [];
-        let res = c.decode_to_slice(&*encoded, &mut decoded_buf);
+        let res = c.decode_to_slice(&encoded, &mut decoded_buf);
 
         match res {
             Err(Error::EofDuringFrame) => (),
@@ -629,7 +631,7 @@ mod tests {
     fn decode_to_slice_encoded_empty() {
         let encoded = vec![];
         let mut decoded_buf = [];
-        let res = codec().decode_to_slice(&*encoded, &mut decoded_buf);
+        let res = codec().decode_to_slice(&encoded, &mut decoded_buf);
 
         match res {
             Err(Error::EofBeforeFrame) => (),
@@ -654,7 +656,7 @@ mod tests {
         }
 
         let mut decoded_buf = vec![0u8; max_decoded_len(encoded.len())];
-        let res = codec().decode_to_slice(&*encoded, &mut decoded_buf);
+        let res = codec().decode_to_slice(&encoded, &mut decoded_buf);
 
         match res {
             Err(Error::ChecksumError) => (),
@@ -669,7 +671,7 @@ mod tests {
         let encoded = &encoded[1..encoded.len()];
 
         let mut decoded_buf = vec![0u8; max_decoded_len(encoded.len())];
-        let res = codec().decode_to_slice(&*encoded, &mut decoded_buf);
+        let res = codec().decode_to_slice(encoded, &mut decoded_buf);
 
         match res {
             Err(Error::ChecksumError) => (),
@@ -681,7 +683,7 @@ mod tests {
     #[cfg(feature = "use_std")]
     fn decode_to_box_ok() {
         let encoded = codec().encode_to_box(&PAYLOAD).unwrap();
-        let decoded = codec().decode_to_box(&*encoded).unwrap();
+        let decoded = codec().decode_to_box(&encoded).unwrap();
 
         assert_eq!(&PAYLOAD, &*decoded);
     }
@@ -701,7 +703,7 @@ mod tests {
     fn roundtrip_default_config() {
         roundtrip_case(&mut Config::default()
                                    .to_codec(),
-                       &PAYLOAD)
+                       &PAYLOAD);
     }
 
     #[test]
@@ -710,7 +712,7 @@ mod tests {
         roundtrip_case(&mut Config::default()
                                .set_checksum(Checksum::None)
                                .to_codec(),
-                       &PAYLOAD)
+                       &PAYLOAD);
     }
 
     #[test]
@@ -718,16 +720,16 @@ mod tests {
     fn roundtrip_empty_payload() {
         roundtrip_case(&mut Config::default()
                                    .to_codec(),
-                       &[])
+                       &[]);
     }
 
     #[cfg(feature = "use_std")]
     fn roundtrip_case(c: &mut Codec, payload: &Payload) {
         let encoded = c.encode_to_box(payload);
-        println!("encoded: {:?}", encoded);
+        println!("encoded: {encoded:?}");
         let encoded = encoded.unwrap();
-        let decoded = c.decode_to_box(&*encoded);
-        println!("decoded: {:?}", decoded);
+        let decoded = c.decode_to_box(&encoded);
+        println!("decoded: {decoded:?}");
         let decoded = decoded.unwrap();
         assert_eq!(&*decoded, payload);
     }
@@ -778,8 +780,8 @@ mod rw_tests {
 
         let r1 = rx.recv().unwrap();
         let r2 = rx.recv().unwrap();
-        println!("r1: {:?}\n\
-                  r2: {:?}", r1, r2);
+        println!("r1: {r1:?}\n\
+                  r2: {r2:?}");
 
         assert_eq!(*r1, s1);
         assert_eq!(*r2, s2);
@@ -790,7 +792,7 @@ mod rw_tests {
         let (mut _tx, mut rx) = pair();
         match rx.recv() {
             Err(Error::EofBeforeFrame) => (),
-            e @ _ => panic!("Bad value: {:?}", e)
+            e => panic!("Bad value: {:?}", e)
         }
     }
 
@@ -802,7 +804,7 @@ mod rw_tests {
         tx_raw.write(&[0x01]).unwrap();
         match rx.recv() {
             Err(Error::EofDuringFrame) => (),
-            e @ _ => panic!("Bad value: {:?}", e)
+            e => panic!("Bad value: {:?}", e)
         }
     }
 

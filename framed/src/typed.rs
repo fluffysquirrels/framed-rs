@@ -129,7 +129,7 @@ impl<T: DeserializeOwned + Serialize> Clone for Config<T> {
     fn clone(&self) -> Config<T> {
         Config::<T> {
             bytes_config: self.bytes_config.clone(),
-            _phantom: PhantomData::<T>::default(),
+            _phantom: PhantomData::<T>,
         }
     }
 }
@@ -138,7 +138,7 @@ impl<T: DeserializeOwned + Serialize> Config<T> {
     pub(crate) fn new(bytes_config: &bytes::Config) -> Config<T> {
         Config::<T> {
             bytes_config: bytes_config.clone(),
-            _phantom: PhantomData::<T>::default(),
+            _phantom: PhantomData::<T>,
         }
     }
 
@@ -146,7 +146,7 @@ impl<T: DeserializeOwned + Serialize> Config<T> {
     pub fn to_codec(&mut self) -> Codec<T> {
         Codec::<T> {
             bytes_codec: self.bytes_config.to_codec(),
-            _phantom: PhantomData::<T>::default(),
+            _phantom: PhantomData::<T>,
         }
     }
 
@@ -155,7 +155,7 @@ impl<T: DeserializeOwned + Serialize> Config<T> {
     pub fn to_receiver<R: Read>(&mut self, r: R) -> Receiver<R, T> {
         Receiver::<R, T> {
             codec: self.to_codec(),
-            r: r,
+            r,
         }
     }
 
@@ -164,7 +164,7 @@ impl<T: DeserializeOwned + Serialize> Config<T> {
     pub fn to_sender<W: Write>(&mut self, w: W) -> Sender<W, T> {
         Sender::<W, T> {
             codec: self.to_codec(),
-            w: w,
+            w,
         }
     }
 }
@@ -186,7 +186,7 @@ impl<T: DeserializeOwned + Serialize> Codec<T> {
     ///
     /// ## Examples
     ///
-    /// See the [no_std usage example](index.html#example-usage-from-a-no_std-crate)
+    /// See the [`no_std` usage example](index.html#example-usage-from-a-no_std-crate)
     /// in the `typed` module documentation.
     pub fn encode_to_slice(
         &mut self,
@@ -217,7 +217,7 @@ impl<T: DeserializeOwned + Serialize> Codec<T> {
     ///
     /// ## Examples
     ///
-    /// See the [no_std usage example](index.html#example-usage-from-a-no_std-crate)
+    /// See the [`no_std` usage example](index.html#example-usage-from-a-no_std-crate)
     /// in the `typed` module documentation.
     pub fn decode_from_slice(
         &mut self,
@@ -306,7 +306,7 @@ impl<W: Write, T: DeserializeOwned + Serialize> Sender<W, T> {
 
         let ser_len = ssmarshal::serialize(&mut ser_buf, v)?;
         let ser = &ser_buf[0..ser_len];
-        self.codec.bytes_codec.encode_to_writer(&ser, &mut self.w)
+        self.codec.bytes_codec.encode_to_writer(ser, &mut self.w)
     }
 
     /// Encode the supplied payload as a frame, write it to the
@@ -349,7 +349,7 @@ impl<R: Read, T: DeserializeOwned + Serialize> Receiver<R, T> {
     pub fn recv(&mut self) -> Result<T> {
         let payload =
             self.codec.bytes_codec.decode_from_reader::<R>(&mut self.r)?;
-        let (v, _len) = ssmarshal::deserialize(&*payload)?;
+        let (v, _len) = ssmarshal::deserialize(&payload)?;
         Ok(v)
     }
 }
@@ -394,7 +394,7 @@ mod tests {
             a: [1, 2, 3],
         };
         #[cfg(feature = "use_std")] {
-            println!("Test value: {:#?}", v);
+            println!("Test value: {v:#?}");
         }
         v
     }
@@ -475,7 +475,7 @@ mod tests {
             let v = test_val();
             tx.send(&v).unwrap();
             let r = rx.recv().unwrap();
-            println!("r: {:#?}", r);
+            println!("r: {r:#?}");
             assert_eq!(v, r);
         }
 
@@ -484,7 +484,7 @@ mod tests {
             let (mut _tx, mut rx) = pair();
             match rx.recv() {
                 Err(Error::EofBeforeFrame) => (),
-                e @ _ => panic!("Bad value: {:?}", e)
+                e => panic!("Bad value: {:?}", e)
             }
         }
 
